@@ -1,0 +1,8 @@
+streamlit
+pillow
+easyocr
+openai
+azure-storage-blob
+numpy
+torch
+opencv-python-headless
