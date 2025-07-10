@@ -9,14 +9,15 @@ import requests
 import streamlit as st
 from openai import OpenAI
 from azure.storage.blob import BlobServiceClient
+import pandas as pd
 
-# AzureとOpenAIのシークレット
+# シークレット読み込み
 AZURE_ENDPOINT = st.secrets["AZURE_ENDPOINT"]
 AZURE_KEY = st.secrets["AZURE_KEY"]
-AZURE_STORAGE_CONNECTION_STRING = st.secrets["AZURE_CONNECTION_STRING"]
+AZURE_STORAGE_CONNECTION_STRING = st.secrets["AZURE_STORAGE_CONNECTION_STRING"]
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
-# OpenAIクライアント（新構文）
+# OpenAIクライアント
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 def preprocess_image(image: Image.Image) -> Image.Image:
@@ -38,10 +39,7 @@ def run_ocr(image: Image.Image) -> str:
                 "Ocp-Apim-Subscription-Key": AZURE_KEY,
                 "Content-Type": "application/octet-stream"
             },
-            params={
-                "language": "ja",
-                "model-version": "latest"
-            },
+            params={"language": "ja", "model-version": "latest"},
             data=img_bytes
         )
 
@@ -53,9 +51,7 @@ def run_ocr(image: Image.Image) -> str:
         for block in result.get("readResult", {}).get("blocks", []):
             for line in block.get("lines", []):
                 text += line.get("text", "") + "\n"
-
         return text
-
     except Exception as e:
         return f"⚠️ 例外エラー: {str(e)}"
 
@@ -74,33 +70,37 @@ def summarize_text(text: str) -> str:
     except Exception as e:
         return f"⚠️ 要約エラー: {str(e)}"
 
-def save_to_azure_blob_csv(ocr_text: str, summary_text: str, container_name="ocr-results") -> str:
+def save_to_azure_blob_csv_append(ocr_text: str, summary_text: str, file_name: str, container_name="ocr-results", blob_name="ocr_result.csv") -> str:
     try:
         # Blobサービスに接続
-        blob_service_client = BlobServiceClient.from_connection_string(
-            AZURE_STORAGE_CONNECTION_STRING
-        )
+        blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
         container_client = blob_service_client.get_container_client(container_name)
         if not container_client.exists():
             container_client.create_container()
 
-        # CSV内容を作成
+        blob_client = container_client.get_blob_client(blob_name)
+
+        # 新しい行のDataFrame
+        new_row = pd.DataFrame([{
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "file_name": file_name,
+            "ocr_text": ocr_text.replace("\n", " "),
+            "summary_text": summary_text.replace("\n", " ")
+        }])
+
+        try:
+            # 既存ファイル読み込み
+            existing_data = blob_client.download_blob().readall().decode("utf-8")
+            existing_df = pd.read_csv(StringIO(existing_data))
+            updated_df = pd.concat([existing_df, new_row], ignore_index=True)
+        except:
+            updated_df = new_row  # 初回作成
+
         output = StringIO()
-        writer = csv.writer(output)
-        writer.writerow(["timestamp", "ocr_text", "summary_text"])
-        writer.writerow([
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            ocr_text.replace("\n", " "),
-            summary_text.replace("\n", " ")
-        ])
-        csv_data = output.getvalue().encode("utf-8")
+        updated_df.to_csv(output, index=False)
+        blob_client.upload_blob(output.getvalue(), overwrite=True)
 
-        # Blobに保存
-        filename = f"ocr_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        blob_client = container_client.get_blob_client(filename)
-        blob_client.upload_blob(csv_data, overwrite=True)
-
-        return f"✅ CSVで保存されました: {filename}"
+        return f"✅ CSVに追記保存されました: {blob_name}"
 
     except Exception as e:
         return f"⚠️ 保存エラー: {str(e)}"
