@@ -14,7 +14,7 @@ def run_ocr(image):
     """
     endpoint = st.secrets["AZURE_CV_ENDPOINT"]
     key = st.secrets["AZURE_CV_KEY"]
-    ocr_url = f"{endpoint}/vision/v3.2/ocr?language=ja&detectOrientation=true"
+    ocr_url = f"{endpoint.rstrip('/')}/vision/v3.2/ocr?language=ja&detectOrientation=true"
 
     image_bytes = image.getvalue()
 
@@ -24,7 +24,12 @@ def run_ocr(image):
     }
 
     response = requests.post(ocr_url, headers=headers, data=image_bytes)
-    response.raise_for_status()
+
+    # 🔍 エラーがある場合、詳細ログを表示
+    if response.status_code != 200:
+        print("🛑 Azure OCR ERROR:", response.text)
+        response.raise_for_status()
+
     analysis = response.json()
 
     lines = []
