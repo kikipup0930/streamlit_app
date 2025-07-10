@@ -1,31 +1,32 @@
 # utils.py
 
 import io
-import csv
-from datetime import datetime
+import pandas as pd
 from io import StringIO
+from datetime import datetime
 from PIL import Image, ImageOps, ImageFilter
 import requests
 import streamlit as st
 from openai import OpenAI
 from azure.storage.blob import BlobServiceClient
-import pandas as pd
 
-# シークレット読み込み
+# シークレットから設定値を取得
 AZURE_ENDPOINT = st.secrets["AZURE_ENDPOINT"]
 AZURE_KEY = st.secrets["AZURE_KEY"]
 AZURE_STORAGE_CONNECTION_STRING = st.secrets["AZURE_STORAGE_CONNECTION_STRING"]
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
-# OpenAIクライアント
+# OpenAIクライアント初期化
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+# 画像前処理（白黒化・コントラスト強調）
 def preprocess_image(image: Image.Image) -> Image.Image:
     image = image.convert("L")
     image = image.filter(ImageFilter.MedianFilter(size=3))
     image = ImageOps.autocontrast(image)
     return image
 
+# OCR実行（Azure Read APIに対応）
 def run_ocr(image: Image.Image) -> str:
     image = preprocess_image(image)
     buffer = io.BytesIO()
@@ -43,44 +44,53 @@ def run_ocr(image: Image.Image) -> str:
             data=img_bytes
         )
 
-        if response.status_code != 200:
-            return f"⚠️ APIエラー: {response.status_code}\n{response.text}"
-
         result = response.json()
-        text = ""
-        for block in result.get("readResult", {}).get("blocks", []):
-            for line in block.get("lines", []):
-                text += line.get("text", "") + "\n"
-        return text
-    except Exception as e:
-        return f"⚠️ 例外エラー: {str(e)}"
+        read_result = result.get("readResult", {})
 
+        if "content" in read_result:
+            return read_result["content"].strip()
+
+        pages = read_result.get("pages", [])
+        if pages:
+            lines = pages[0].get("lines", [])
+            return "\n".join([line.get("content", "") for line in lines])
+
+        st.warning("⚠️ OCR結果が取得できませんでした。")
+        return ""
+    except Exception as e:
+        st.error(f"❌ OCRエラー: {e}")
+        return ""
+
+# GPTによる要約生成
 def summarize_text(text: str) -> str:
     try:
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "あなたは日本語に堪能な要約アシスタントです。"},
-                {"role": "user", "content": f"以下の文章を読みやすく要約してください：\n{text}"}
+                {"role": "system", "content": "以下のOCRテキストを読みやすく日本語で要約してください。"},
+                {"role": "user", "content": text}
             ],
             temperature=0.5,
             max_tokens=600
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        return f"⚠️ 要約エラー: {str(e)}"
+        st.error(f"❌ 要約エラー: {e}")
+        return "要約に失敗しました"
 
-def save_to_azure_blob_csv_append(ocr_text: str, summary_text: str, file_name: str, container_name="ocr-results", blob_name="ocr_result.csv") -> str:
+# Azure Blob に追記形式でCSV保存
+def save_to_azure_blob_csv_append(ocr_text: str, summary_text: str, file_name: str,
+                                   container_name="ocr-results", blob_name="ocr_result.csv") -> str:
     try:
-        # Blobサービスに接続
-        blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-        container_client = blob_service_client.get_container_client(container_name)
+        # 接続
+        blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+        container_client = blob_service.get_container_client(container_name)
         if not container_client.exists():
             container_client.create_container()
 
         blob_client = container_client.get_blob_client(blob_name)
 
-        # 新しい行のDataFrame
+        # 追記対象の新しい行を作成
         new_row = pd.DataFrame([{
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "file_name": file_name,
@@ -88,19 +98,20 @@ def save_to_azure_blob_csv_append(ocr_text: str, summary_text: str, file_name: s
             "summary_text": summary_text.replace("\n", " ")
         }])
 
+        # 既存のCSV読み込み（なければ新規）
         try:
-            # 既存ファイル読み込み
             existing_data = blob_client.download_blob().readall().decode("utf-8")
             existing_df = pd.read_csv(StringIO(existing_data))
-            updated_df = pd.concat([existing_df, new_row], ignore_index=True)
-        except:
-            updated_df = new_row  # 初回作成
+            combined_df = pd.concat([existing_df, new_row], ignore_index=True)
+        except Exception:
+            combined_df = new_row
 
+        # 上書きで保存
         output = StringIO()
-        updated_df.to_csv(output, index=False)
+        combined_df.to_csv(output, index=False)
         blob_client.upload_blob(output.getvalue(), overwrite=True)
 
-        return f"✅ CSVに追記保存されました: {blob_name}"
+        return "✅ Azure BlobにCSVを追記保存しました"
 
     except Exception as e:
-        return f"⚠️ 保存エラー: {str(e)}"
+        return f"❌ 保存エラー: {e}"
