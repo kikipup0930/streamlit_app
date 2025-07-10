@@ -25,7 +25,6 @@ if uploaded_file:
             st.subheader("📝 要約")
             st.text(summary)
 
-            # ファイル名を整形（最大50文字＋日時）
             base = re.sub(r"[^\w\-]", "_", uploaded_file.name.rsplit(".", 1)[0])
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"{base[:50]}_{timestamp}.txt"

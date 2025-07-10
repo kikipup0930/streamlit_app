@@ -1,14 +1,13 @@
 # utils.py
 
 import io
-import re
 from PIL import Image, ImageOps, ImageFilter
 import requests
 from openai import OpenAI
 from azure.storage.blob import BlobServiceClient
 import streamlit as st
 
-# 🔐 Secrets 読み込み
+# Secrets
 AZURE_ENDPOINT = st.secrets["AZURE_ENDPOINT"]
 AZURE_KEY = st.secrets["AZURE_KEY"]
 AZURE_CONTAINER = st.secrets["AZURE_CONTAINER"]
@@ -17,18 +16,17 @@ OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# 前処理（印刷文字に適した設定：反転なし）
 def preprocess_image(image: Image.Image) -> Image.Image:
     image = image.convert("L")  # グレースケール
-    image = image.filter(ImageFilter.MedianFilter(size=3))  # ノイズ除去
-    image = ImageOps.autocontrast(image)  # コントラスト強調
+    image = image.filter(ImageFilter.MedianFilter(size=3))
+    image = ImageOps.autocontrast(image)
     return image
 
-# OCR実行
 def run_ocr(image: Image.Image) -> str:
     image = preprocess_image(image)
+
     buffer = io.BytesIO()
-    image.save(buffer, format="JPEG")
+    image.save(buffer, format="PNG")  # JPEGよりPNGの方が精度安定
     img_bytes = buffer.getvalue()
 
     try:
@@ -38,18 +36,29 @@ def run_ocr(image: Image.Image) -> str:
                 "Ocp-Apim-Subscription-Key": AZURE_KEY,
                 "Content-Type": "application/octet-stream"
             },
-            params={"language": "ja", "model-version": "latest"},
+            # 言語指定を一旦外すことで精度を上げる場合もあり
+            params={},  
             data=img_bytes
         )
         result = response.json()
+
+        # 🔍 デバッグ用表示（Streamlit上に表示）
+        st.subheader("🔍 Azure OCRレスポンス（開発者向け）")
+        st.json(result)
+
         pages = result.get("readResult", {}).get("pages", [])
-        lines = pages[0].get("lines", []) if pages else []
-        return "\n".join([line.get("content", "") for line in lines])
+        if not pages:
+            st.warning("⚠️ OCR結果にページデータが含まれていません。構造を確認してください。")
+            return ""
+
+        lines = pages[0].get("lines", [])
+        text = "\n".join([line.get("content", "") for line in lines])
+        return text
+
     except Exception as e:
-        st.error(f"OCRエラー: {e}")
+        st.error(f"❌ OCRエラー: {e}")
         return ""
 
-# GPT要約
 def summarize(text: str) -> str:
     try:
         response = client.chat.completions.create(
@@ -64,7 +73,6 @@ def summarize(text: str) -> str:
         st.error(f"要約エラー: {e}")
         return "要約失敗"
 
-# Azure Blob保存
 def save_to_blob(filename: str, content: str):
     try:
         blob_service = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
