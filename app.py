@@ -1,39 +1,34 @@
+# app.py
+
 import streamlit as st
 from PIL import Image
-from utils import run_ocr, run_summary, save_to_blob
-import io
+from utils import run_ocr, summarize, save_to_blob
 
-st.set_page_config(page_title="手書きOCR + GPT要約", layout="centered")
-st.title("📝 手書きOCR + GPT要約アプリ")
+st.set_page_config(page_title="OCR + GPT要約", layout="centered")
+st.title("📝 手書きOCR + GPT要約")
 
 uploaded_file = st.file_uploader("画像をアップロードしてください", type=["png", "jpg", "jpeg"])
 
 if uploaded_file:
-    # ✅ BytesIOにコピーして画像表示にもAPI送信にも使えるようにする
-    image_bytes = uploaded_file.read()
-    image_stream = io.BytesIO(image_bytes)
+    image = Image.open(uploaded_file)
+    st.image(image, caption="アップロード画像", use_column_width=True)
 
-    try:
-        image = Image.open(image_stream)
-        st.image(image, caption="アップロードされた画像", use_container_width=True)
-    except Exception as e:
-        st.error(f"❌ 画像の読み込みに失敗しました: {e}")
+    if st.button("OCR + 要約を実行"):
+        with st.spinner("🔍 Azure OCRを実行中..."):
+            ocr_text = run_ocr(image)
 
-    if st.button("OCRと要約を実行"):
-        try:
-            with st.spinner("🔍 OCRで文字を認識中..."):
-                # OCR実行には再びBytesIOで渡す
-                ocr_text = run_ocr(io.BytesIO(image_bytes))
-                st.text_area("📄 OCR結果", ocr_text, height=200)
+        st.subheader("📄 OCR結果")
+        st.text(ocr_text)
 
-            with st.spinner("✍️ 要約生成中..."):
-                summary = run_summary(ocr_text)
-                st.text_area("📝 要約結果", summary, height=150)
+        with st.spinner("🧠 GPTで要約中..."):
+            summary = summarize(ocr_text)
 
-            with st.spinner("☁️ Azureに保存中..."):
-                save_to_blob("ocr_result.txt", ocr_text)
-                save_to_blob("summary_result.txt", summary)
-                st.success("✅ Azure Blob Storage に保存しました！")
+        st.subheader("📝 GPT要約")
+        st.text(summary)
 
-        except Exception as e:
-            st.error(f"❌ 処理中にエラーが発生しました: {e}")
+        with st.spinner("💾 Azure Blob に保存中..."):
+            filename = uploaded_file.name.rsplit(".", 1)[0] + ".txt"
+            content = f"OCR結果:\n{ocr_text}\n\n要約:\n{summary}"
+            save_to_blob(filename, content)
+
+        st.success("✅ 完了しました！Azureに保存されました。")

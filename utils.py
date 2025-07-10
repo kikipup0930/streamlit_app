@@ -1,64 +1,54 @@
-import os
+# utils.py
+
 import io
+from PIL import Image
 import requests
-import streamlit as st
-from openai import OpenAI
 from azure.storage.blob import BlobServiceClient
+from openai import OpenAI
+import streamlit as st
 
-# 🔑 OpenAI クライアント初期化
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY"))
+# シークレットから設定を読み込む
+AZURE_ENDPOINT = st.secrets["AZURE_ENDPOINT"]
+AZURE_KEY = st.secrets["AZURE_KEY"]
+AZURE_CONTAINER = st.secrets["AZURE_CONTAINER"]
+AZURE_CONNECTION_STRING = st.secrets["AZURE_CONNECTION_STRING"]
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
-def run_ocr(image_stream):
-    """
-    Azure Computer Vision API を使ってOCRを実行（日本語対応）
-    """
-    endpoint = st.secrets["AZURE_CV_ENDPOINT"].rstrip("/")
-    key = st.secrets["AZURE_CV_KEY"]
-    ocr_url = f"{endpoint}/vision/v3.2/ocr?language=ja&detectOrientation=true"
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-    headers = {
-        "Ocp-Apim-Subscription-Key": key,
-        "Content-Type": "application/octet-stream"
-    }
+# Azure OCR 実行関数
+def run_ocr(image: Image.Image) -> str:
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG")
+    img_bytes = buffer.getvalue()
 
-    image_bytes = image_stream.read()
-    response = requests.post(ocr_url, headers=headers, data=image_bytes)
+    response = requests.post(
+        url=f"{AZURE_ENDPOINT}/computervision/imageanalysis:analyze?api-version=2023-10-01&features=read",
+        headers={
+            "Ocp-Apim-Subscription-Key": AZURE_KEY,
+            "Content-Type": "application/octet-stream"
+        },
+        params={"language": "ja", "model-version": "latest"},
+        data=img_bytes
+    )
+    response.raise_for_status()
+    result = response.json()
+    return result["readResult"]["content"]
 
-    if response.status_code != 200:
-        print("🛑 Azure OCR ERROR:", response.text)
-        response.raise_for_status()
-
-    analysis = response.json()
-
-    lines = []
-    for region in analysis.get("regions", []):
-        for line in region.get("lines", []):
-            text = "".join([word["text"] for word in line.get("words", [])])
-            lines.append(text)
-
-    return "\n".join(lines)
-
-def run_summary(text):
-    """
-    GPT API (OpenAI SDK v1.x) を使用して日本語の文章を要約
-    """
+# OpenAI GPT 要約関数
+def summarize(text: str) -> str:
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4",
         messages=[
-            {"role": "user", "content": f"以下の文章を要約してください：\n{text}"}
+            {"role": "system", "content": "以下の日本語の手書き文書を簡潔に要約してください。"},
+            {"role": "user", "content": text}
         ]
     )
     return response.choices[0].message.content.strip()
 
-def save_to_blob(filename, content):
-    """
-    Azure Blob Storage にテキストを保存
-    """
-    connect_str = st.secrets["AZURE_STORAGE_CONNECTION_STRING"]
-    container_name = "results"
-
-    blob_service_client = BlobServiceClient.from_connection_string(connect_str)
-    container_client = blob_service_client.get_container_client(container_name)
-    blob_client = container_client.get_blob_client(blob=filename)
-
+# Azure Blob に保存する関数
+def save_to_blob(filename: str, content: str):
+    blob_service = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
+    container_client = blob_service.get_container_client(AZURE_CONTAINER)
+    blob_client = container_client.get_blob_client(filename)
     blob_client.upload_blob(content.encode("utf-8"), overwrite=True)
