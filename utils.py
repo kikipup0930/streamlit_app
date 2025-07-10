@@ -4,15 +4,18 @@ import io
 from PIL import Image, ImageOps, ImageFilter
 import requests
 import streamlit as st
-import openai
+from openai import OpenAI
 
 # Secrets
 AZURE_ENDPOINT = st.secrets["AZURE_ENDPOINT"]
 AZURE_KEY = st.secrets["AZURE_KEY"]
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-openai.api_key = OPENAI_API_KEY
+
+# OpenAI クライアント（v1.x以降対応）
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 def preprocess_image(image: Image.Image) -> Image.Image:
+    # グレースケール変換 + ノイズ除去 + コントラスト補正
     image = image.convert("L")
     image = image.filter(ImageFilter.MedianFilter(size=3))
     image = ImageOps.autocontrast(image)
@@ -54,7 +57,7 @@ def run_ocr(image: Image.Image) -> str:
 
 def summarize_text(text: str) -> str:
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "あなたは日本語に堪能な要約アシスタントです。"},
@@ -63,6 +66,6 @@ def summarize_text(text: str) -> str:
             temperature=0.5,
             max_tokens=600
         )
-        return response.choices[0].message["content"]
+        return response.choices[0].message.content
     except Exception as e:
         return f"⚠️ 要約エラー: {str(e)}"
