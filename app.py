@@ -1,6 +1,7 @@
 import streamlit as st
 from PIL import Image
 from utils import run_ocr, run_summary, save_to_blob
+import io
 
 st.set_page_config(page_title="手書きOCR + GPT要約", layout="centered")
 st.title("📝 手書きOCR + GPT要約アプリ")
@@ -8,16 +9,21 @@ st.title("📝 手書きOCR + GPT要約アプリ")
 uploaded_file = st.file_uploader("画像をアップロードしてください", type=["png", "jpg", "jpeg"])
 
 if uploaded_file:
-    # 表示用の画像として再読込（エラー防止のためstreamをseek(0)）
-    uploaded_file.seek(0)
-    image = Image.open(uploaded_file)
-    st.image(image, caption="アップロードされた画像", use_column_width=True)
+    # ✅ BytesIOにコピーして画像表示にもAPI送信にも使えるようにする
+    image_bytes = uploaded_file.read()
+    image_stream = io.BytesIO(image_bytes)
+
+    try:
+        image = Image.open(image_stream)
+        st.image(image, caption="アップロードされた画像", use_container_width=True)
+    except Exception as e:
+        st.error(f"❌ 画像の読み込みに失敗しました: {e}")
 
     if st.button("OCRと要約を実行"):
         try:
-            uploaded_file.seek(0)  # 再度読み込み位置を先頭に戻す
             with st.spinner("🔍 OCRで文字を認識中..."):
-                ocr_text = run_ocr(uploaded_file)
+                # OCR実行には再びBytesIOで渡す
+                ocr_text = run_ocr(io.BytesIO(image_bytes))
                 st.text_area("📄 OCR結果", ocr_text, height=200)
 
             with st.spinner("✍️ 要約生成中..."):
