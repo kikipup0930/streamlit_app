@@ -1,22 +1,24 @@
 import os
+import io
 import requests
-import numpy as np
 from azure.storage.blob import BlobServiceClient
 import openai
 import streamlit as st
 
-# 🔐 OpenAI APIキーを環境変数または secrets から読み込む
+# 🔐 OpenAI APIキーを読み込み（secrets または環境変数）
 openai.api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
 
-def run_ocr(image):
+def run_ocr(uploaded_file):
     """
     Azure Computer Vision API を使ってOCRを実行（日本語対応）
     """
-    endpoint = st.secrets["AZURE_CV_ENDPOINT"]
+    endpoint = st.secrets["AZURE_CV_ENDPOINT"].rstrip("/")  # ← スラッシュ対策
     key = st.secrets["AZURE_CV_KEY"]
-    ocr_url = f"{endpoint.rstrip('/')}/vision/v3.2/ocr?language=ja&detectOrientation=true"
+    ocr_url = f"{endpoint}/vision/v3.2/ocr?language=ja&detectOrientation=true"
 
-    image_bytes = image.getvalue()
+    # 🔄 アップロードファイルをバイナリ形式に変換
+    image = uploaded_file
+    image_bytes = image.read()
 
     headers = {
         "Ocp-Apim-Subscription-Key": key,
@@ -25,13 +27,14 @@ def run_ocr(image):
 
     response = requests.post(ocr_url, headers=headers, data=image_bytes)
 
-    # 🔍 エラーがある場合、詳細ログを表示
+    # 🔍 デバッグ用：失敗した場合はエラー詳細を表示
     if response.status_code != 200:
         print("🛑 Azure OCR ERROR:", response.text)
         response.raise_for_status()
 
     analysis = response.json()
 
+    # テキスト行を抽出して連結
     lines = []
     for region in analysis.get("regions", []):
         for line in region.get("lines", []):
