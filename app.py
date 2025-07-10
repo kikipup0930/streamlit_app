@@ -1,32 +1,66 @@
+import os
+import requests
+import numpy as np
+from azure.storage.blob import BlobServiceClient
+import openai
 import streamlit as st
-from PIL import Image
-from utils import run_ocr, run_summary, save_to_blob
 
-st.set_page_config(page_title="手書きOCR + GPT要約", layout="centered")
-st.title("📝 手書きOCR + GPT要約アプリ")
+# 🔐 OpenAI APIキーを環境変数または secrets から読み込む
+openai.api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
 
-uploaded_file = st.file_uploader("画像をアップロードしてください", type=["png", "jpg", "jpeg"])
+def run_ocr(image):
+    """
+    Azure Computer Vision API を使ってOCRを実行（日本語対応）
+    """
+    endpoint = st.secrets["AZURE_CV_ENDPOINT"]
+    key = st.secrets["AZURE_CV_KEY"]
+    ocr_url = f"{endpoint.rstrip('/')}/vision/v3.2/ocr?language=ja&detectOrientation=true"
 
-if uploaded_file:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="アップロードされた画像", use_column_width=True)
+    image_bytes = image.getvalue()
 
-    if st.button("OCRと要約を実行"):
-        try:
-            with st.spinner("🔍 OCRで文字を認識中..."):
-                ocr_text = run_ocr(uploaded_file)  # ← 修正：uploaded_file を渡す
-                st.subheader("📄 OCR結果")
-                st.text_area("OCR結果", ocr_text, height=200)
+    headers = {
+        "Ocp-Apim-Subscription-Key": key,
+        "Content-Type": "application/octet-stream"
+    }
 
-            with st.spinner("✍️ 要約生成中..."):
-                summary = run_summary(ocr_text)
-                st.subheader("📝 要約結果")
-                st.text_area("要約結果", summary, height=150)
+    response = requests.post(ocr_url, headers=headers, data=image_bytes)
 
-            with st.spinner("☁️ Azureに保存中..."):
-                save_to_blob("ocr_result.txt", ocr_text)
-                save_to_blob("summary_result.txt", summary)
-                st.success("✅ Azure Blob Storage に保存しました！")
+    # 🔍 エラーがある場合、詳細ログを表示
+    if response.status_code != 200:
+        print("🛑 Azure OCR ERROR:", response.text)
+        response.raise_for_status()
 
-        except Exception as e:
-            st.error(f"❌ 処理中にエラーが発生しました: {e}")
+    analysis = response.json()
+
+    lines = []
+    for region in analysis.get("regions", []):
+        for line in region.get("lines", []):
+            text = "".join([word["text"] for word in line.get("words", [])])
+            lines.append(text)
+
+    return "\n".join(lines)
+
+def run_summary(text):
+    """
+    GPT APIを使用して日本語の文章を要約
+    """
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "user", "content": f"以下の文章を要約してください：\n{text}"}
+        ]
+    )
+    return response.choices[0].message.content.strip()
+
+def save_to_blob(filename, content):
+    """
+    Azure Blob Storage にテキストを保存
+    """
+    connect_str = st.secrets["AZURE_STORAGE_CONNECTION_STRING"]
+    container_name = "results"
+
+    blob_service_client = BlobServiceClient.from_connection_string(connect_str)
+    container_client = blob_service_client.get_container_client(container_name)
+    blob_client = container_client.get_blob_client(blob=filename)
+
+    blob_client.upload_blob(content.encode("utf-8"), overwrite=True)
