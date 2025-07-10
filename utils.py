@@ -24,9 +24,8 @@ def preprocess_image(image: Image.Image) -> Image.Image:
 
 def run_ocr(image: Image.Image) -> str:
     image = preprocess_image(image)
-
     buffer = io.BytesIO()
-    image.save(buffer, format="PNG")  # JPEGよりPNGの方が精度安定
+    image.save(buffer, format="PNG")
     img_bytes = buffer.getvalue()
 
     try:
@@ -36,28 +35,34 @@ def run_ocr(image: Image.Image) -> str:
                 "Ocp-Apim-Subscription-Key": AZURE_KEY,
                 "Content-Type": "application/octet-stream"
             },
-            # 言語指定を一旦外すことで精度を上げる場合もあり
-            params={},  
+            params={"language": "ja", "model-version": "latest"},
             data=img_bytes
         )
         result = response.json()
 
-        # 🔍 デバッグ用表示（Streamlit上に表示）
-        st.subheader("🔍 Azure OCRレスポンス（開発者向け）")
+        # 📋 Azure OCR結果を確認用に表示
+        st.subheader("🔍 Azure OCRレスポンス（開発用）")
         st.json(result)
 
-        pages = result.get("readResult", {}).get("pages", [])
-        if not pages:
-            st.warning("⚠️ OCR結果にページデータが含まれていません。構造を確認してください。")
-            return ""
+        # 🧠 柔軟な構造対応：pagesがなくてもlines探す
+        text_lines = []
+        read_result = result.get("readResult", {})
+        pages = read_result.get("pages", [])
+        
+        if pages:
+            for page in pages:
+                for line in page.get("lines", []):
+                    text_lines.append(line.get("content", ""))
+        else:
+            st.warning("⚠️ 'pages' が見つかりませんでした。構造を確認してください。")
 
-        lines = pages[0].get("lines", [])
-        text = "\n".join([line.get("content", "") for line in lines])
-        return text
+        final_text = "\n".join(text_lines).strip()
+        return final_text if final_text else "（OCR結果が空です）"
 
     except Exception as e:
         st.error(f"❌ OCRエラー: {e}")
-        return ""
+        return "（OCR失敗）"
+
 
 def summarize(text: str) -> str:
     try:
