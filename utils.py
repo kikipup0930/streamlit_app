@@ -13,7 +13,7 @@ from azure.storage.blob import BlobServiceClient
 # AzureとOpenAIのシークレット
 AZURE_ENDPOINT = st.secrets["AZURE_ENDPOINT"]
 AZURE_KEY = st.secrets["AZURE_KEY"]
-AZURE_STORAGE_CONNECTION_STRING = st.secrets["AZURE_STORAGE_CONNECTION_STRING"]
+AZURE_STORAGE_CONNECTION_STRING = st.secrets["AZURE_CONNECTION_STRING"]
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
 # OpenAIクライアント（新構文）
