@@ -35,32 +35,33 @@ def run_ocr(image: Image.Image) -> str:
         response.raise_for_status()
         result = response.json()
 
+        # 🧪 デバッグ用：APIの全レスポンスを表示（開発時のみ）
         st.subheader("🧪 Azure OCR API レスポンス（開発用）")
         st.json(result)
 
-        # ✅ 正しい構造からテキストを抽出
-        lines = result.get("readResult", {}).get("pages", [])[0].get("lines", [])
-        text = "\n".join([line["content"] for line in lines])
+        # 📄 行ごとの文字列を結合して1つのテキストに
+        pages = result.get("readResult", {}).get("pages", [])
+        if not pages:
+            st.warning("⚠️ OCR結果にページデータが含まれていません。")
+            return ""
+
+        lines = pages[0].get("lines", [])
+        text = "\n".join([line.get("content", "") for line in lines])
         if not text:
-            st.warning("⚠️ 文字が検出されませんでした。")
+            st.warning("⚠️ OCR結果が空です。画像に文字が含まれていない可能性があります。")
         return text
 
     except Exception as e:
         st.error(f"❌ OCR実行中にエラーが発生しました: {e}")
         return ""
 
-
-    except Exception as e:
-        st.error(f"❌ OCR実行中にエラーが発生しました: {e}")
-        return ""
-
-# ✏️ GPTによる要約関数
+# 🤖 OpenAI GPT による要約関数
 def summarize(text: str) -> str:
     try:
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "以下の日本語の手書き文書を簡潔に要約してください。"},
+                {"role": "system", "content": "以下のOCRテキストを簡潔に日本語で要約してください。"},
                 {"role": "user", "content": text}
             ]
         )
@@ -69,7 +70,7 @@ def summarize(text: str) -> str:
         st.error(f"❌ 要約生成中にエラーが発生しました: {e}")
         return "要約に失敗しました。"
 
-# 💾 Azure Blob に保存
+# 💾 Azure Blob Storage に保存する関数
 def save_to_blob(filename: str, content: str):
     try:
         blob_service = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
