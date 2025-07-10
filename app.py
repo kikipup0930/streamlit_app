@@ -40,3 +40,14 @@ if st.session_state.ocr_text:
 if st.session_state.summary_text:
     st.subheader("🧠 要約結果")
     st.text(st.session_state.summary_text)
+
+from utils import save_to_azure_blob_csv
+
+# 要約後に保存
+if st.button("CSVで保存"):
+    save_message = save_to_azure_blob_csv(
+        st.session_state.ocr_text,
+        st.session_state.summary_text
+    )
+    st.success(save_message)
+
