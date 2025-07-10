@@ -4,14 +4,15 @@ from azure.storage.blob import BlobServiceClient
 import openai
 import streamlit as st
 
-# 🔐 OpenAIのAPIキーを環境変数から読み込み
+# 🔐 OpenAI APIキーを環境変数から読み込む
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def run_ocr(image):
     """
     easyocrで画像からテキストを抽出
+    モデルは関数内で遅延ロードする（初回のみDLされる）
     """
-    import easyocr  # 遅延インポート（初回のみ重いため）
+    import easyocr  # 遅延インポート
     reader = easyocr.Reader(['ja', 'en'], gpu=False)
     result = reader.readtext(np.array(image), detail=0)
     return "\n".join(result)
@@ -40,5 +41,3 @@ def save_to_blob(filename, content):
     blob_client = container_client.get_blob_client(blob=filename)
 
     blob_client.upload_blob(content.encode("utf-8"), overwrite=True)
-
-
