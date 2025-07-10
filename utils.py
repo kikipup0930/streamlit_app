@@ -1,12 +1,12 @@
 import os
 import io
 import requests
-from azure.storage.blob import BlobServiceClient
-import openai
 import streamlit as st
+from openai import OpenAI
+from azure.storage.blob import BlobServiceClient
 
-# 🔐 APIキー読み込み（環境変数またはSecrets）
-openai.api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
+# 🔑 OpenAI クライアント初期化
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY"))
 
 def run_ocr(image_stream):
     """
@@ -40,9 +40,9 @@ def run_ocr(image_stream):
 
 def run_summary(text):
     """
-    GPT APIを使用して日本語の文章を要約
+    GPT API (OpenAI SDK v1.x) を使用して日本語の文章を要約
     """
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "user", "content": f"以下の文章を要約してください：\n{text}"}
