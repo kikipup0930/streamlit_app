@@ -17,12 +17,11 @@ OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# 画像の前処理（手書き対応）
+# 前処理（印刷文字に適した設定：反転なし）
 def preprocess_image(image: Image.Image) -> Image.Image:
-    image = image.convert("L")
-    image = ImageOps.invert(image)
-    image = image.filter(ImageFilter.MedianFilter(size=3))
-    image = ImageOps.autocontrast(image)
+    image = image.convert("L")  # グレースケール
+    image = image.filter(ImageFilter.MedianFilter(size=3))  # ノイズ除去
+    image = ImageOps.autocontrast(image)  # コントラスト強調
     return image
 
 # OCR実行
@@ -65,7 +64,7 @@ def summarize(text: str) -> str:
         st.error(f"要約エラー: {e}")
         return "要約失敗"
 
-# Blob保存
+# Azure Blob保存
 def save_to_blob(filename: str, content: str):
     try:
         blob_service = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)

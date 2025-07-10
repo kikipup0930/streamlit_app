@@ -18,14 +18,14 @@ if uploaded_file:
     if st.button("OCR + 要約を実行"):
         ocr_text = run_ocr(image)
         st.subheader("📄 OCR結果")
-        st.text(ocr_text)
+        st.text(ocr_text if ocr_text.strip() else "（テキストが検出されませんでした）")
 
         if ocr_text.strip():
             summary = summarize(ocr_text)
             st.subheader("📝 要約")
             st.text(summary)
 
-            # ファイル名を整形（最大80文字）
+            # ファイル名を整形（最大50文字＋日時）
             base = re.sub(r"[^\w\-]", "_", uploaded_file.name.rsplit(".", 1)[0])
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"{base[:50]}_{timestamp}.txt"
