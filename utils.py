@@ -61,14 +61,21 @@ def summarize(text: str) -> str:
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "以下のOCRテキストを簡潔に日本語で要約してください。"},
-                {"role": "user", "content": text}
+                {
+                    "role": "system",
+                    "content": "以下の日本語のOCRテキストを簡潔に要約してください。"
+                },
+                {
+                    "role": "user",
+                    "content": text
+                }
             ]
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
         st.error(f"❌ 要約生成中にエラーが発生しました: {e}")
         return "要約に失敗しました。"
+
 
 # 💾 Azure Blob Storage に保存する関数
 def save_to_blob(filename: str, content: str):
