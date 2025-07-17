@@ -14,8 +14,8 @@ import requests
 # ------------------- Azure設定 -------------------
 AZURE_STORAGE_CONNECTION_STRING = st.secrets["AZURE_CONNECTION_STRING"]
 AZURE_CONTAINER_NAME = "ocr-results"
-AZURE_COMPUTER_VISION_ENDPOINT = st.secrets["AZURE_COMPUTER_VISION_ENDPOINT"]
-AZURE_COMPUTER_VISION_KEY = st.secrets["AZURE_COMPUTER_VISION_KEY"]
+AZURE_COMPUTER_VISION_ENDPOINT = st.secrets["AZURE_ENDPOINT"]
+AZURE_COMPUTER_VISION_KEY = st.secrets["AZURE_KEY"]
 
 # ------------------- OCR処理 -------------------
 def run_ocr(image: Image.Image) -> str:
