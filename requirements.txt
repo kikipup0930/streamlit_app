@@ -6,7 +6,6 @@ azure-storage-blob
 numpy
 torch
 opencv-python-headless
-openai>=1.0.0
 requests
 azure-cognitiveservices-vision-computervision
 msrest
