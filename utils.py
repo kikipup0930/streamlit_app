@@ -92,7 +92,7 @@ def sanitize_filename(name: str) -> str:
     return re.sub(r'[^a-zA-Z0-9_.-]', '_', name)
 
 def save_to_azure_blob_csv_append(ocr_text: str, summary_text: str, file_name: str,
-                                   container_name=AZURE_CONTAINER, blob_name="ocr_result.csv") -> str:
+                                   container_name=AZURE_CONTAINER, blob_name="ocr-result.csv") -> str:
     try:
         # ⛑️ セーフなファイル名に変換
         safe_file_name = sanitize_filename(file_name) if file_name else "no_filename"
