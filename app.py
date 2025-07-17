@@ -1,54 +1,47 @@
 import streamlit as st
-from PIL import Image
-from utils import run_ocr, summarize_text, save_to_azure_blob_csv_append
 from datetime import datetime
+from utils import run_ocr, summarize_text, save_to_azure_blob_csv_append
 
-st.set_page_config(page_title="OCR & 要約アプリ", layout="centered")
-st.title("📄 画像OCR & 要約アプリ（Azure版）")
+st.set_page_config(page_title="OCR & 要約アプリ", page_icon="🧠")
+st.title("📄 OCR × 要約ツール")
 
-# セッションステートの初期化
-if "ocr_text" not in st.session_state:
-    st.session_state.ocr_text = ""
-if "summary" not in st.session_state:
-    st.session_state.summary = ""
+uploaded_file = st.file_uploader("アップロード画像", type=["png", "jpg", "jpeg"])
 
-uploaded_file = st.file_uploader("画像をアップロードしてください（手書き・印刷文字）", type=["png", "jpg", "jpeg"])
+ocr_text = ""
+summary = ""
 
 if uploaded_file:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="アップロードされた画像", use_column_width=True)
+    st.image(uploaded_file, caption="アップロード画像", use_column_width=True)
 
-    # OCR実行ボタン
-    if st.button("OCR実行"):
-        st.session_state.ocr_text = run_ocr(image)
-        if st.session_state.ocr_text:
-            st.success("✅ OCR結果を取得しました")
-        else:
-            st.warning("⚠️ OCR結果が取得できませんでした。")
+    if st.button("🧠 OCR実行"):
+        try:
+            ocr_text = run_ocr(uploaded_file)
+            if ocr_text:
+                st.success("✅ OCR結果取得成功")
+                st.text_area("📘 OCR結果", ocr_text, height=200)
+                st.session_state.ocr_text = ocr_text
+                st.session_state.uploaded_file_name = uploaded_file.name
+            else:
+                st.warning("⚠️ OCR結果が取得できませんでした。")
+        except Exception as e:
+            st.error(f"❌ OCRエラー: {e}")
 
-    # OCR結果があれば表示
-    if st.session_state.ocr_text:
-        st.subheader("OCR結果")
-        st.text_area("OCR抽出テキスト", st.session_state.ocr_text, height=200)
+    if "ocr_text" in st.session_state and st.button("📝 要約する"):
+        try:
+            summary = summarize_text(st.session_state.ocr_text)
+            st.text_area("✏️ 要約結果", summary, height=200)
+            st.session_state.summary = summary
+        except Exception as e:
+            st.error(f"❌ 要約エラー: {e}")
 
-        # 要約ボタン
-        if st.button("要約する"):
-            st.session_state.summary = summarize_text(st.session_state.ocr_text)
-
-        # 要約結果があれば表示
-        if st.session_state.summary:
-            st.subheader("要約")
-            st.write(st.session_state.summary)
-
-            # 保存ボタン
-            if st.button("CSVに保存"):
-                success, msg = save_to_azure_blob_csv_append({
-                    "日付": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "ファイル名": uploaded_file.name,
-                    "OCR結果": st.session_state.ocr_text,
-                    "要約": st.session_state.summary
-                })
-                if success:
-                    st.success(msg)
-                else:
-                    st.error(msg)
+    if "summary" in st.session_state and st.button("💾 保存"):
+        try:
+            save_to_azure_blob_csv_append({
+                "日付": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "ファイル名": st.session_state.uploaded_file_name,
+                "OCR結果": st.session_state.ocr_text,
+                "要約": st.session_state.summary
+            })
+            st.success("✅ 保存成功")
+        except Exception as e:
+            st.error(f"❌ 保存エラー: {e}")

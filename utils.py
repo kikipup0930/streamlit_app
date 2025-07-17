@@ -1,16 +1,14 @@
+import os
 import io
 import csv
-import streamlit as st
-from PIL import Image
+import openai
+import requests
 from datetime import datetime
 from azure.storage.blob import BlobServiceClient
-from azure.core.exceptions import ResourceExistsError
-from azure.cognitiveservices.vision.computervision import ComputerVisionClient
-from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes
-from msrest.authentication import CognitiveServicesCredentials
-import openai
+from PIL import Image
+import streamlit as st
 
-# 環境変数（secrets.tomlから読み込み）
+# 環境変数の読み込み
 AZURE_ENDPOINT = st.secrets["AZURE_ENDPOINT"]
 AZURE_KEY = st.secrets["AZURE_KEY"]
 AZURE_CONTAINER = st.secrets["AZURE_CONTAINER"]
@@ -21,81 +19,79 @@ AZURE_OPENAI_API_KEY = st.secrets["AZURE_OPENAI_API_KEY"]
 AZURE_OPENAI_DEPLOYMENT_NAME = st.secrets["AZURE_OPENAI_DEPLOYMENT_NAME"]
 AZURE_OPENAI_API_VERSION = st.secrets["AZURE_OPENAI_API_VERSION"]
 
-# OCR実行（Computer Vision v3.2）
-def run_ocr(image: Image.Image) -> str:
-    client = ComputerVisionClient(AZURE_ENDPOINT, CognitiveServicesCredentials(AZURE_KEY))
-    
-    image_stream = io.BytesIO()
-    image.save(image_stream, format="PNG")
-    image_stream.seek(0)
+# Azure Computer Vision OCR
+def run_ocr(image_file):
+    image_data = image_file.read()
+    ocr_url = AZURE_ENDPOINT + "computervision/imageanalysis:analyze?api-version=2023-10-01&features=read"
+    headers = {
+        "Ocp-Apim-Subscription-Key": AZURE_KEY,
+        "Content-Type": "application/octet-stream"
+    }
+    response = requests.post(ocr_url, headers=headers, data=image_data)
+    response.raise_for_status()
+    result = response.json()
 
-    read_response = client.read_in_stream(image_stream, raw=True)
-    operation_location = read_response.headers["Operation-Location"]
-    operation_id = operation_location.split("/")[-1]
-
-    import time
-    while True:
-        result = client.get_read_result(operation_id)
-        if result.status not in ['notStarted', 'running']:
-            break
-        time.sleep(1)
-
-    if result.status == OperationStatusCodes.succeeded:
-        lines = [line.text for page in result.analyze_result.read_results for line in page.lines]
-        return "\n".join(lines)
+    # 読み取り結果を取得
+    text = ""
+    if "readResult" in result and "blocks" in result["readResult"]:
+        for block in result["readResult"]["blocks"]:
+            for line in block["lines"]:
+                text += line["text"] + "\n"
+    elif "readResult" in result and "content" in result["readResult"]:
+        text = result["readResult"]["content"]
     else:
         return ""
 
-# 要約（Azure OpenAI GPT-3.5）
-def summarize_text(text: str) -> str:
-    openai.api_type = "azure"
-    openai.api_base = AZURE_OPENAI_ENDPOINT
-    openai.api_key = AZURE_OPENAI_API_KEY
-    openai.api_version = AZURE_OPENAI_API_VERSION
+    return text.strip()
 
+# Azure OpenAIによる要約
+def summarize_text(text):
+    from openai import AzureOpenAI
+    client = AzureOpenAI(
+        api_key=AZURE_OPENAI_API_KEY,
+        api_version=AZURE_OPENAI_API_VERSION,
+        azure_endpoint=AZURE_OPENAI_ENDPOINT
+    )
+
+    response = client.chat.completions.create(
+        model=AZURE_OPENAI_DEPLOYMENT_NAME,
+        messages=[
+            {"role": "system", "content": "以下の文章を簡潔に日本語で要約してください。"},
+            {"role": "user", "content": text}
+        ],
+        temperature=0.7,
+        max_tokens=500
+    )
+
+    return response.choices[0].message.content.strip()
+
+# Azure Blob StorageにCSV追記保存
+def save_to_azure_blob_csv_append(data_dict):
+    csv_filename = "ocr_result.csv"
+    blob_service_client = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
+    container_client = blob_service_client.get_container_client(AZURE_CONTAINER)
+    if not container_client.exists():
+        container_client.create_container()
+
+    # 既存のCSV読み込み
+    existing_data = []
     try:
-        response = openai.ChatCompletion.create(
-            engine=AZURE_OPENAI_DEPLOYMENT_NAME,
-            messages=[
-                {"role": "system", "content": "以下の文章を日本語で要約してください。"},
-                {"role": "user", "content": text}
-            ],
-            temperature=0.7,
-            max_tokens=500
-        )
-        return response["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        return f"❌ 要約エラー: {str(e)}"
+        blob_client = container_client.get_blob_client(csv_filename)
+        download_stream = blob_client.download_blob()
+        existing_data = list(csv.reader(io.StringIO(download_stream.content_as_text())))
+    except Exception:
+        pass
 
-# CSV保存（追記型）
-def save_to_azure_blob_csv_append(data: dict, blob_name: str = "ocr_result.csv") -> tuple:
-    try:
-        blob_service_client = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
-        container_client = blob_service_client.get_container_client(AZURE_CONTAINER)
+    # 新規データを追記
+    output = io.StringIO()
+    writer = csv.writer(output)
+    if not existing_data:
+        writer.writerow(data_dict.keys())
+    else:
+        writer.writerows(existing_data[1:])
+    writer.writerow(data_dict.values())
 
-        try:
-            container_client.create_container()
-        except ResourceExistsError:
-            pass
+    # 書き戻し
+    blob_client = container_client.get_blob_client(csv_filename)
+    blob_client.upload_blob(output.getvalue(), overwrite=True)
 
-        blob_client = container_client.get_blob_client(blob_name)
-
-        # 既存CSV取得
-        existing_data = []
-        if blob_client.exists():
-            content = blob_client.download_blob().content_as_text()
-            existing_data = list(csv.reader(io.StringIO(content)))
-
-        # 追記
-        new_row = [data.get("日付"), data.get("ファイル名"), data.get("OCR結果"), data.get("要約")]
-        existing_data.append(new_row)
-
-        # 再アップロード
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerows(existing_data)
-        blob_client.upload_blob(output.getvalue(), overwrite=True)
-
-        return True, "✅ CSVに追記保存しました。"
-    except Exception as e:
-        return False, f"❌ 保存エラー: {str(e)}"
