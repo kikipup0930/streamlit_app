@@ -33,7 +33,7 @@ if st.session_state.summary_text:
     st.subheader("要約結果")
     st.text(st.session_state.summary_text)
 
-    if uploaded_file and st.button("s保存"):
+    if uploaded_file and st.button("保存"):
         msg = save_to_azure_blob_csv_append(
             st.session_state.ocr_text,
             st.session_state.summary_text,

@@ -85,9 +85,18 @@ def summarize_text(text: str) -> str:
         return "⚠️ 要約に失敗しました。"
 
 # 💾 CSV追記保存（Azure Blob）
+import re
+
+def sanitize_filename(name: str) -> str:
+    # ファイル名をBlobに適した形式に変換（英数・アンダースコア以外を削除）
+    return re.sub(r'[^a-zA-Z0-9_.-]', '_', name)
+
 def save_to_azure_blob_csv_append(ocr_text: str, summary_text: str, file_name: str,
                                    container_name=AZURE_CONTAINER, blob_name="ocr_result.csv") -> str:
     try:
+        # ⛑️ セーフなファイル名に変換
+        safe_file_name = sanitize_filename(file_name) if file_name else "no_filename"
+
         blob_service = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
         container = blob_service.get_container_client(container_name)
         if not container.exists():
@@ -95,15 +104,13 @@ def save_to_azure_blob_csv_append(ocr_text: str, summary_text: str, file_name: s
 
         blob = container.get_blob_client(blob_name)
 
-        # 追記用データ作成
         new_row = pd.DataFrame([{
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "file_name": file_name,
+            "file_name": safe_file_name,
             "ocr_text": ocr_text.replace("\n", " "),
             "summary_text": summary_text.replace("\n", " ")
         }])
 
-        # 既存CSVの取得と結合
         try:
             data = blob.download_blob().readall().decode("utf-8")
             df = pd.read_csv(StringIO(data))
@@ -111,11 +118,11 @@ def save_to_azure_blob_csv_append(ocr_text: str, summary_text: str, file_name: s
         except:
             combined = new_row
 
-        # 上書きアップロード
         buf = StringIO()
         combined.to_csv(buf, index=False)
         blob.upload_blob(buf.getvalue(), overwrite=True)
 
         return "✅ 保存成功"
+
     except Exception as e:
         return f"❌ 保存エラー: {e}"
