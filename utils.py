@@ -1,108 +1,121 @@
-import os
+# utils.py
+
 import io
-import cv2
-import base64
-import numpy as np
-import streamlit as st
+import pandas as pd
+from io import StringIO
 from datetime import datetime
-from azure.storage.blob import BlobServiceClient
-from PIL import Image
-import openai
-import json
+from PIL import Image, ImageOps, ImageFilter
 import requests
+import streamlit as st
+from openai import OpenAI
+from azure.storage.blob import BlobServiceClient
 
-# ------------------- Azure設定 -------------------
-AZURE_STORAGE_CONNECTION_STRING = st.secrets["AZURE_CONNECTION_STRING"]
-AZURE_CONTAINER_NAME = "ocr-results"
-AZURE_COMPUTER_VISION_ENDPOINT = st.secrets["AZURE_ENDPOINT"]
-AZURE_COMPUTER_VISION_KEY = st.secrets["AZURE_KEY"]
+# 🔐 Secrets
+AZURE_ENDPOINT = st.secrets["AZURE_ENDPOINT"]
+AZURE_KEY = st.secrets["AZURE_KEY"]
+AZURE_CONTAINER = st.secrets["AZURE_CONTAINER"]
+AZURE_CONNECTION_STRING = st.secrets["AZURE_CONNECTION_STRING"]
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
-# ------------------- OCR処理 -------------------
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+# 🔧 OCR前処理
+def preprocess_image(image: Image.Image) -> Image.Image:
+    image = image.convert("L")
+    image = image.filter(ImageFilter.MedianFilter(size=3))
+    image = ImageOps.autocontrast(image)
+    return image
+
+# 📷 OCR実行（blocks > lines > text 対応）
 def run_ocr(image: Image.Image) -> str:
-    try:
-        # PIL → OpenCV（前処理用）
-        img_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-        img_gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-        img_eq = cv2.equalizeHist(img_gray)
-        _, img_thresh = cv2.threshold(img_eq, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        _, buffer = cv2.imencode(".png", img_thresh)
-        img_bytes = io.BytesIO(buffer.tobytes())
+    image = preprocess_image(image)
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
 
-        # Azure OCR API呼び出し
-        ocr_url = f"{AZURE_COMPUTER_VISION_ENDPOINT}/computervision/imageanalysis:analyze?api-version=2023-10-01&features=read"
-        headers = {
-            "Ocp-Apim-Subscription-Key": AZURE_COMPUTER_VISION_KEY,
-            "Content-Type": "application/octet-stream"
-        }
-        response = requests.post(ocr_url, headers=headers, data=img_bytes.getvalue())
+    try:
+        response = requests.post(
+            url=f"{AZURE_ENDPOINT}/computervision/imageanalysis:analyze?api-version=2023-10-01&features=read",
+            headers={
+                "Ocp-Apim-Subscription-Key": AZURE_KEY,
+                "Content-Type": "application/octet-stream"
+            },
+            params={"language": "ja", "model-version": "latest"},
+            data=buf.getvalue()
+        )
         result = response.json()
 
-        st.subheader("🔍 Azure OCR レスポンス")
+        st.subheader("🔍 OCRレスポンス")
         st.json(result)
 
-        # ---------- 構造別にテキスト抽出 ----------
         if "readResult" in result:
             rr = result["readResult"]
-            if "content" in rr:
-                return rr["content"]
-            elif "blocks" in rr:
-                texts = []
-                for block in rr["blocks"]:
-                    for line in block.get("lines", []):
-                        texts.append(line.get("text", ""))
-                return "\n".join(texts)
+            # 最も一般的：readResult["blocks"][].lines[].text
+            lines = []
+            for block in rr.get("blocks", []):
+                for line in block.get("lines", []):
+                    line_text = line.get("text")
+                    if line_text:
+                        lines.append(line_text.strip())
+            if lines:
+                return "\n".join(lines)
+
+            # fallback: content
+            if "content" in rr and rr["content"].strip():
+                return rr["content"].strip()
+
         return "⚠️ OCR結果が取得できませんでした。"
+
     except Exception as e:
         st.error(f"OCRエラー: {e}")
-        return "⚠️ OCRエラーが発生しました。"
+        return ""
 
-# ------------------- GPT要約 -------------------
+# ✍️ GPTによる要約
 def summarize_text(text: str) -> str:
     try:
-        openai.api_key = st.secrets["OPENAI_API_KEY"]
-        response = openai.ChatCompletion.create(
+        res = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "以下のOCRテキストを日本語で簡潔に要約してください。"},
                 {"role": "user", "content": text}
-            ],
-            temperature=0.5,
+            ]
         )
-        return response["choices"][0]["message"]["content"].strip()
+        return res.choices[0].message.content.strip()
     except Exception as e:
         st.error(f"要約エラー: {e}")
         return "⚠️ 要約に失敗しました。"
 
-# ------------------- CSV追記保存 -------------------
-def save_to_azure_blob_csv_append(data: dict):
+# 💾 CSV追記保存（Azure Blob）
+def save_to_azure_blob_csv_append(ocr_text: str, summary_text: str, file_name: str,
+                                   container_name=AZURE_CONTAINER, blob_name="ocr_result.csv") -> str:
     try:
-        blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-        container_client = blob_service_client.get_container_client(AZURE_CONTAINER_NAME)
-        if not container_client.exists():
-            container_client.create_container()
+        blob_service = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
+        container = blob_service.get_container_client(container_name)
+        if not container.exists():
+            container.create_container()
 
-        blob_name = "ocr_result.csv"
-        blob_client = container_client.get_blob_client(blob_name)
+        blob = container.get_blob_client(blob_name)
 
-        # 既存CSV取得
-        if blob_client.exists():
-            existing_data = blob_client.download_blob().readall().decode("utf-8")
-        else:
-            existing_data = ""
+        # 追記用データ作成
+        new_row = pd.DataFrame([{
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "file_name": file_name,
+            "ocr_text": ocr_text.replace("\n", " "),
+            "summary_text": summary_text.replace("\n", " ")
+        }])
 
-        # 新しい行を追加
-        import csv
-        import pandas as pd
-        from io import StringIO
+        # 既存CSVの取得と結合
+        try:
+            data = blob.download_blob().readall().decode("utf-8")
+            df = pd.read_csv(StringIO(data))
+            combined = pd.concat([df, new_row], ignore_index=True)
+        except:
+            combined = new_row
 
-        # 既存 + 新行をDataFrame化
-        df_existing = pd.read_csv(StringIO(existing_data)) if existing_data else pd.DataFrame()
-        df_new = pd.DataFrame([data])
-        df_merged = pd.concat([df_existing, df_new], ignore_index=True)
+        # 上書きアップロード
+        buf = StringIO()
+        combined.to_csv(buf, index=False)
+        blob.upload_blob(buf.getvalue(), overwrite=True)
 
-        # 上書き保存
-        csv_buffer = StringIO()
-        df_merged.to_csv(csv_buffer, index=False)
-        blob_client.upload_blob(csv_buffer.getvalue(), overwrite=True)
+        return "✅ 保存成功"
     except Exception as e:
-        st.error(f"保存エラー: {e}")
+        return f"❌ 保存エラー: {e}"
