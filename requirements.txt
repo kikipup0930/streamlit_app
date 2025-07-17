@@ -10,3 +10,5 @@ openai>=1.0.0
 requests
 azure-cognitiveservices-vision-computervision
 msrest
+openai==0.28.1
+
