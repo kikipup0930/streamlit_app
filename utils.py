@@ -45,21 +45,35 @@ def run_ocr(image: Image.Image) -> str:
         )
 
         result = response.json()
+
+        # デバッグ出力（Streamlit上でレスポンスを可視化）
+        st.subheader("🔍 Azureレスポンス（デバッグ用）")
+        st.json(result)
+
         read_result = result.get("readResult", {})
 
+        # contentフィールド（簡易テキスト）があればそれを返す
         if "content" in read_result:
             return read_result["content"].strip()
 
+        # pagesフィールド対応（従来構造）
         pages = read_result.get("pages", [])
         if pages:
             lines = pages[0].get("lines", [])
             return "\n".join([line.get("content", "") for line in lines])
 
+        # blocks対応（より詳細な構造）
+        blocks = read_result.get("blocks", [])
+        if blocks:
+            return "\n".join([block.get("content", "") for block in blocks])
+
         st.warning("⚠️ OCR結果が取得できませんでした。")
         return ""
+
     except Exception as e:
         st.error(f"❌ OCRエラー: {e}")
         return ""
+
 
 # GPTによる要約生成
 def summarize_text(text: str) -> str:
