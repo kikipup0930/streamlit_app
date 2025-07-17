@@ -94,5 +94,9 @@ streamlit_app/
   - AZURE_CONNECTION_STRING
   - OPENAI_API_KEY 
 
+- **azure openAIをgpt3.5に変更**
+  - デプロイ名 → gpt-35-turbo
+
+
 ### 🧩 課題と対応
 ### 💡 今後の展望

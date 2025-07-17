@@ -9,5 +9,5 @@ opencv-python-headless
 requests
 azure-cognitiveservices-vision-computervision
 msrest
-
+pandas
 
