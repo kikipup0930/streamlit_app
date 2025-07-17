@@ -25,37 +25,48 @@ def preprocess_image(image: Image.Image) -> Image.Image:
 
 def run_ocr(image: Image.Image) -> str:
     image = preprocess_image(image)
-    buf = io.BytesIO()
-    image.save(buf, format="PNG")
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    img_bytes = buffer.getvalue()
 
-    response = requests.post(
-        url=f"{AZURE_ENDPOINT}/computervision/imageanalysis:analyze?api-version=2023-10-01&features=read",
-        headers={
-            "Ocp-Apim-Subscription-Key": AZURE_KEY,
-            "Content-Type": "application/octet-stream"
-        },
-        params={"language": "ja", "model-version": "latest"},
-        data=buf.getvalue()
-    )
+    try:
+        response = requests.post(
+            url=f"{AZURE_ENDPOINT}/computervision/imageanalysis:analyze?api-version=2023-10-01&features=read",
+            headers={
+                "Ocp-Apim-Subscription-Key": AZURE_KEY,
+                "Content-Type": "application/octet-stream"
+            },
+            params={"language": "ja", "model-version": "latest"},
+            data=img_bytes
+        )
 
-    result = response.json()
-    read_result = result.get("readResult", {})
+        result = response.json()
 
-    if "content" in read_result and read_result["content"].strip():
-        return read_result["content"].strip()
+        # ✅ デバッグ用にレスポンス全体を表示
+        st.subheader("🔍 Azure OCR レスポンス")
+        st.json(result)
 
-    if "pages" in read_result:
-        lines = []
-        for page in read_result["pages"]:
-            lines += [line.get("content", "") for line in page.get("lines", [])]
-        if lines:
-            return "\n".join(lines)
+        read_result = result.get("readResult", {})
 
-    if "blocks" in read_result:
-        return "\n".join([block.get("content", "") for block in read_result["blocks"]])
+        if "content" in read_result and read_result["content"].strip():
+            return read_result["content"].strip()
 
-    st.warning("⚠️ OCR結果が取得できませんでした。")
-    return ""
+        if "pages" in read_result:
+            lines = []
+            for page in read_result["pages"]:
+                lines += [line.get("content", "") for line in page.get("lines", [])]
+            if lines:
+                return "\n".join(lines)
+
+        if "blocks" in read_result:
+            return "\n".join([block.get("content", "") for block in read_result["blocks"]])
+
+        st.warning("⚠️ OCR結果が取得できませんでした。")
+        return ""
+
+    except Exception as e:
+        st.error(f"❌ OCRエラー: {e}")
+        return ""
 
 def summarize_text(text: str) -> str:
     try:
