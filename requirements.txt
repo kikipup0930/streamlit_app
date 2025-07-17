@@ -1,7 +1,7 @@
 streamlit
 pillow
 easyocr
-openai
+openai==0.27.8
 azure-storage-blob
 numpy
 torch
@@ -10,5 +10,5 @@ openai>=1.0.0
 requests
 azure-cognitiveservices-vision-computervision
 msrest
-openai==0.28.1
+
 
