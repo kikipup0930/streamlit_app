@@ -8,4 +8,5 @@ torch
 opencv-python-headless
 openai>=1.0.0
 requests
-azure-ai-vision==1.0.0b1
+azure-cognitiveservices-vision-computervision
+msrest
