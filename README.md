@@ -87,6 +87,12 @@ streamlit_app/
 
 - **ノートの写真追加**
   - ノートの写真を名前を整理し追加した
+- **secretの中身を統一**
+  - AZURE_ENDPOINT
+  - AZURE_KEY
+  - AZURE_CONTAINER
+  - AZURE_CONNECTION_STRING
+  - OPENAI_API_KEY 
 
 ### 🧩 課題と対応
 ### 💡 今後の展望

@@ -93,4 +93,3 @@ def save_to_azure_blob_csv_append(data: dict):
 
     except Exception as e:
         return False, f"❌ 保存エラー: {e}"
-
