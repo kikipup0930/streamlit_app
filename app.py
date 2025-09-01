@@ -2,12 +2,8 @@ import streamlit as st
 from PIL import Image
 from utils import run_ocr, summarize_text, save_to_azure_blob_csv_append, load_csv_from_azure_blob
 from datetime import datetime
-
 st.set_page_config(page_title="OCR × GPT要約アプリ", layout="centered")
-
 st.title("📷 OCR × GPT要約アプリ")
-
-# アップロード欄
 uploaded_file = st.file_uploader("画像をアップロードしてください", type=["png", "jpg", "jpeg"])
 
 if uploaded_file:
@@ -51,4 +47,3 @@ if st.button("📂 履歴を読み込む"):
         st.info("履歴が存在しません。")
     else:
         st.dataframe(df, use_container_width=True)
-
