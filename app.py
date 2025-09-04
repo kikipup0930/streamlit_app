@@ -13,7 +13,7 @@ st.set_page_config(page_title="OCR履歴アプリ", layout="wide")
 
 st.title("StudyRecord")
 
-tab_ocr, tab_hist = st.tabs(["🖼 OCR", "🗂 履歴一覧"])
+tab_ocr, tab_hist = st.tabs(["OCR", "履歴"])
 
 # ======== タブ1: OCR =========
 with tab_ocr:
