@@ -81,7 +81,7 @@ def summarize_text(text):
 
 def save_to_azure_blob_csv_append(filename, data_dict):
     """
-    Azure Blob Storage にCSV形式で追記保存（UTF-8 with BOMで保存）
+    Azure Blob Storage にCSV形式で追記保存（デフォルトのエンコーディングで保存）
     """
     try:
         connection_string = os.getenv("AZURE_CONNECTION_STRING")
@@ -103,9 +103,9 @@ def save_to_azure_blob_csv_append(filename, data_dict):
             # 初回 or ファイルなし
             updated_df = new_row
 
-        # UTF-8 with BOM（Excelで日本語OK）
+        # 文字化け対策前：エンコーディングを指定せず保存（pandasの既定 = UTF-8）
         output_stream = io.BytesIO()
-        updated_df.to_csv(output_stream, index=False, encoding="utf_8_sig")
+        updated_df.to_csv(output_stream, index=False)
         output_stream.seek(0)
         blob_client.upload_blob(output_stream, overwrite=True)
 
