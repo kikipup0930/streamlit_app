@@ -111,3 +111,21 @@ def save_to_azure_blob_csv_append(filename, data_dict):
 
     except Exception as e:
         st.error(f"CSV保存中にエラーが発生しました: {e}")
+def load_csv_from_blob(filename: str, encoding: str = "utf-8") -> pd.DataFrame:
+    """
+    Azure Blob Storage 上のCSVを読み込み、DataFrameを返す。
+    まずUTF-8で試し、失敗したらCP932で救済。
+    """
+    cs = os.getenv("AZURE_CONNECTION_STRING")
+    container = os.getenv("AZURE_CONTAINER")
+    bsc = BlobServiceClient.from_connection_string(cs)
+    bc = bsc.get_blob_client(container=container, blob=filename)
+
+    buf = io.BytesIO()
+    bc.download_blob().readinto(buf)
+    buf.seek(0)
+    try:
+        return pd.read_csv(buf, encoding=encoding)
+    except Exception:
+        buf.seek(0)
+        return pd.read_csv(buf, encoding="cp932", errors="replace")
