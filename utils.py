@@ -8,10 +8,7 @@ from openai import AzureOpenAI
 
 
 def run_ocr(uploaded_file):
-    """
-    Azure Computer Vision OCR v3.2 API を使って画像からテキストを抽出する。
-    """
-    endpoint = os.getenv("AZURE_ENDPOINT")  # ← ここに合わせた
+    endpoint = os.getenv("AZURE_ENDPOINT")
     key = os.getenv("AZURE_KEY")
 
     if not endpoint or not key:
@@ -46,9 +43,6 @@ def run_ocr(uploaded_file):
 
 
 def result_to_text(result_json):
-    """
-    OCRのJSONレスポンスからテキストを抽出して結合。
-    """
     output_text = ""
     try:
         for region in result_json.get("regions", []):
@@ -62,9 +56,6 @@ def result_to_text(result_json):
 
 
 def summarize_text(text):
-    """
-    Azure OpenAI を使ってテキストを要約する。
-    """
     try:
         client = AzureOpenAI(
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
@@ -90,11 +81,11 @@ def summarize_text(text):
 
 def save_to_azure_blob_csv_append(filename, data_dict):
     """
-    Azure Blob Storage 上のCSVファイルに1行データを追記保存する。
+    Azure Blob Storage にCSV形式で追記保存（UTF-8 with BOMで保存）
     """
     try:
         connection_string = os.getenv("AZURE_CONNECTION_STRING")
-        container_name = os.getenv("AZURE_CONTAINER")  # ← ここに合わせた
+        container_name = os.getenv("AZURE_CONTAINER")
 
         blob_service_client = BlobServiceClient.from_connection_string(connection_string)
         blob_client = blob_service_client.get_blob_client(container=container_name, blob=filename)
@@ -102,16 +93,19 @@ def save_to_azure_blob_csv_append(filename, data_dict):
         new_row = pd.DataFrame([data_dict])
 
         try:
+            # 既存ファイルがあれば読み込む
             stream = io.BytesIO()
             blob_client.download_blob().readinto(stream)
             stream.seek(0)
             existing_df = pd.read_csv(stream)
             updated_df = pd.concat([existing_df, new_row], ignore_index=True)
         except Exception:
+            # 初回 or ファイルなし
             updated_df = new_row
 
+        # UTF-8 with BOM（Excelで日本語OK）
         output_stream = io.BytesIO()
-        updated_df.to_csv(output_stream, index=False)
+        updated_df.to_csv(output_stream, index=False, encoding="utf_8_sig")
         output_stream.seek(0)
         blob_client.upload_blob(output_stream, overwrite=True)
 
