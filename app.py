@@ -6,11 +6,10 @@ from utils import (
     run_ocr,
     summarize_text,
     save_to_azure_blob_csv_append,
-    load_csv_from_blob,  # ← 追加
+    load_csv_from_blob,  # 履歴読み込み用
 )
 
-st.set_page_config(page_title="OCR履歴アプリ", layout="wide")
-
+st.set_page_config(page_title="StudyRecord", layout="wide")
 st.title("StudyRecord")
 
 tab_ocr, tab_hist = st.tabs(["OCR", "履歴"])
@@ -45,7 +44,7 @@ with tab_ocr:
             save_to_azure_blob_csv_append("ocr_result.csv", data)
             st.success("保存しました（ocr_result.csv）。")
 
-# ======== タブ2: 履歴一覧 =========
+# ======== タブ2: 履歴 =========
 with tab_hist:
     st.subheader("履歴一覧（ocr_result.csv）")
 
@@ -76,12 +75,12 @@ with tab_hist:
     # フィルタ適用
     filtered = df.copy()
 
-    # 日付範囲
+    # 日付範囲フィルタ
     if filtered["_dt"].notna().any():
         mask_date = (filtered["_dt"].dt.date >= start_date) & (filtered["_dt"].dt.date <= end_date)
         filtered = filtered[mask_date]
 
-    # キーワード（複数列対象）
+    # キーワードフィルタ
     if keyword.strip():
         kw = keyword.strip()
         cols = [c for c in ["ファイル名", "OCR結果", "要約"] if c in filtered.columns]
@@ -95,11 +94,48 @@ with tab_hist:
     show_cols = [c for c in ["日時", "ファイル名", "OCR結果", "要約"] if c in filtered.columns]
     st.dataframe(filtered[show_cols] if show_cols else filtered, use_container_width=True, height=480)
 
-    # ダウンロード（画面上のフィルタ結果をDL）
-    csv_bytes = filtered[show_cols].to_csv(index=False).encode("utf-8") if show_cols else filtered.to_csv(index=False).encode("utf-8")
+    # ダウンロードボタン
+    csv_bytes = (
+        filtered[show_cols].to_csv(index=False).encode("utf-8")
+        if show_cols
+        else filtered.to_csv(index=False).encode("utf-8")
+    )
     st.download_button(
-        "↓ この一覧をCSVでダウンロード",
+        "↓ 履歴をCSVでダウンロード",
         data=csv_bytes,
         file_name="ocr_result_filtered.csv",
         mime="text/csv",
     )
+
+    # --- 日別件数グラフ ---
+    st.markdown("### 日別OCR件数")
+
+    if not filtered.empty and "_dt" in filtered.columns:
+        daily_counts = (
+            filtered.loc[filtered["_dt"].notna(), "_dt"]
+            .dt.date.value_counts()
+            .sort_index()
+            .rename("件数")
+            .to_frame()
+        )
+
+        colA, colB = st.columns([2, 1])
+        with colA:
+            st.caption("日付フィルタ上で絞り込んだ範囲が反映されます。")
+        with colB:
+            last_n = st.selectbox("表示範囲", ["すべて", "直近7日", "直近30日"], index=1)
+
+        if last_n != "すべて":
+            n = 7 if last_n == "直近7日" else 30
+            if len(daily_counts) > n:
+                daily_counts = daily_counts.iloc[-n:]
+
+        st.bar_chart(daily_counts)
+
+        st.caption(
+            f"合計: {int(daily_counts['件数'].sum())}件 / "
+            f"日平均: {daily_counts['件数'].mean():.2f}件 / "
+            f"最大: {daily_counts['件数'].max()}件"
+        )
+    else:
+        st.info("グラフを表示できるデータがありません。")
