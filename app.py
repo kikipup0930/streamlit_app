@@ -47,3 +47,12 @@ if st.button("📂 履歴を読み込む"):
         st.info("履歴が存在しません。")
     else:
         st.dataframe(df, use_container_width=True)
+        ocr_text = run_ocr(uploaded_file)
+summary = summarize_text(ocr_text)
+
+save_to_azure_blob_csv_append("ocr_result.csv", {
+    "日時": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    "ファイル名": uploaded_file.name,
+    "OCR結果": ocr_text,
+    "要約": summary
+})
