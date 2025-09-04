@@ -11,8 +11,8 @@ def run_ocr(uploaded_file):
     """
     Azure Computer Vision OCR v3.2 API を使って画像からテキストを抽出する。
     """
-    endpoint = os.getenv("AZURE_COMPUTER_VISION_ENDPOINT")
-    key = os.getenv("AZURE_COMPUTER_VISION_KEY")
+    endpoint = os.getenv("AZURE_ENDPOINT")  # ← ここに合わせた
+    key = os.getenv("AZURE_KEY")
 
     if not endpoint or not key:
         st.error("❌ Azureのエンドポイントまたはキーが設定されていません。")
@@ -63,22 +63,22 @@ def result_to_text(result_json):
 
 def summarize_text(text):
     """
-    OpenAI API (Azure経由) を使ってテキストを要約。
+    Azure OpenAI を使ってテキストを要約する。
     """
     try:
         client = AzureOpenAI(
-            api_key=os.getenv("AZURE_OPENAI_KEY"),
-            api_version="2023-12-01-preview",
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
         )
 
         response = client.chat.completions.create(
             model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             messages=[
-                {"role": "system", "content": "以下のテキストを簡潔に要約してください。"},
+                {"role": "system", "content": "以下のテキストを日本語で簡潔に要約してください。"},
                 {"role": "user", "content": text}
             ],
-            temperature=0.5
+            temperature=0.3
         )
 
         return response.choices[0].message.content.strip()
@@ -93,8 +93,8 @@ def save_to_azure_blob_csv_append(filename, data_dict):
     Azure Blob Storage 上のCSVファイルに1行データを追記保存する。
     """
     try:
-        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-        container_name = "your-container-name"  # あなたのコンテナ名に合わせて変更
+        connection_string = os.getenv("AZURE_CONNECTION_STRING")
+        container_name = os.getenv("AZURE_CONTAINER")  # ← ここに合わせた
 
         blob_service_client = BlobServiceClient.from_connection_string(connection_string)
         blob_client = blob_service_client.get_blob_client(container=container_name, blob=filename)
