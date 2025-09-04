@@ -11,7 +11,7 @@ from utils import (
 
 st.set_page_config(page_title="OCR履歴アプリ", layout="wide")
 
-st.title("📄 OCR履歴アプリ")
+st.title("StudyRecord")
 
 tab_ocr, tab_hist = st.tabs(["🖼 OCR", "🗂 履歴一覧"])
 
@@ -26,16 +26,16 @@ with tab_ocr:
         with st.spinner("OCRを実行中..."):
             ocr_text = run_ocr(uploaded_file)
         st.success("OCR完了！")
-        st.subheader("🔍 OCR結果")
+        st.subheader("OCR結果")
         st.text(ocr_text)
 
         with st.spinner("要約を生成中..."):
             summary = summarize_text(ocr_text)
-        st.success("要約完了！")
-        st.subheader("📝 要約結果")
+        st.success("要約完了")
+        st.subheader("要約結果")
         st.text(summary)
 
-        if st.button("💾 Azure Blob に結果を追記保存"):
+        if st.button("結果保存"):
             data = {
                 "日時": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "ファイル名": uploaded_file.name,
@@ -47,7 +47,7 @@ with tab_ocr:
 
 # ======== タブ2: 履歴一覧 =========
 with tab_hist:
-    st.subheader("🗂 OCR履歴一覧（ocr_result.csv）")
+    st.subheader("履歴一覧（ocr_result.csv）")
 
     try:
         df = load_csv_from_blob("ocr_result.csv")  # 既定UTF-8で読んで、だめならCP932救済
