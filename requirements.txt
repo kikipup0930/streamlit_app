@@ -10,4 +10,6 @@ requests
 azure-cognitiveservices-vision-computervision
 msrest
 pandas
+matplotlib
+
 
