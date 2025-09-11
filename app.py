@@ -1,9 +1,10 @@
-# StudyRecord-UI2025 — Streamlit UI（全文モーダル＋コピー対応 + Azure実装, CSV追記保存, ローカル保存なし）
+# 手書きノートOCR＋要約による自動復習生成システム
 # -------------------------------------------------
 # - OCR: Azure Computer Vision
 # - 要約: Azure OpenAI
-# - 保存: Azure Blob Storage 上の単一CSVに追記（ローカル保存なし）
+# - 保存: Azure Blob Storage 上の単一CSVに追記
 # - UI: 履歴カードにコピー/全文モーダル対応
+# - 新機能: 日別学習進捗をグラフで可視化
 # -------------------------------------------------
 
 import os
@@ -15,6 +16,7 @@ import time
 import requests
 import pandas as pd
 import streamlit as st
+import matplotlib.pyplot as plt
 from dataclasses import dataclass
 from typing import List, Dict, Any
 from azure.storage.blob import BlobServiceClient, ContentSettings
@@ -22,7 +24,7 @@ from azure.storage.blob import BlobServiceClient, ContentSettings
 # =====================
 # 設定 (Streamlit Secretsから取得)
 # =====================
-APP_TITLE = "StudyRecord"
+APP_TITLE = "Study Record"
 
 AZURE_CV_ENDPOINT = st.secrets.get("AZURE_ENDPOINT", "")
 AZURE_CV_KEY = st.secrets.get("AZURE_KEY", "")
@@ -127,7 +129,7 @@ def run_azure_summary(text: str) -> str:
         return ""
 
 def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.csv") -> None:
-    """Azure Blob Storage 上の CSV に追記保存する（ローカル保存なし）"""
+    """Azure Blob Storage 上の CSV に追記保存する"""
     if not AZURE_STORAGE_CONNECTION_STRING or not AZURE_BLOB_CONTAINER:
         return
 
@@ -176,22 +178,6 @@ def render_header():
     )
     st.divider()
 
-def render_sidebar():
-    with st.sidebar:
-        st.subheader("設定 / Filters")
-        view_mode = st.radio("履歴の表示形式", ["テーブル", "カード"], index=0, horizontal=True)
-        q = st.text_input("キーワード検索（ファイル名/本文/要約）")
-        col1, col2 = st.columns(2)
-        with col1:
-            date_from = st.date_input("開始日", value=None)
-        with col2:
-            date_to = st.date_input("終了日", value=None)
-        st.caption("ヒント：空欄なら全期間が対象")
-
-        # ローカル保存やダウンロードは行わない
-
-    return {"view_mode": view_mode, "q": q, "date_from": date_from, "date_to": date_to}
-
 def matches_filters(rec: OcrRecord, q: str, dfrom, dto) -> bool:
     if q:
         q_lower = q.lower()
@@ -213,7 +199,7 @@ def copy_to_clipboard_button(label, text, key):
     )
 
 def render_history(filters: Dict[str, Any]):
-    st.markdown("### 履歴")
+    st.markdown("### 📚 履歴")
     records: List[OcrRecord] = st.session_state.records
     filtered = [r for r in records if matches_filters(r, filters["q"], filters["date_from"], filters["date_to"])]
 
@@ -251,7 +237,7 @@ def render_history(filters: Dict[str, Any]):
             st.session_state["_modal"] = None
 
 def render_ocr_tab():
-    st.markdown("### OCR 実行")
+    st.markdown("### 🖼️ OCR 実行")
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
     if uploaded is not None:
         st.image(uploaded, caption=uploaded.name, use_column_width=True)
@@ -268,10 +254,48 @@ def render_ocr_tab():
                 meta={"size": len(image_bytes)}
             )
             st.session_state.records.insert(0, rec)
-            # Azure Blob CSV に追記保存
             save_to_blob_csv(rec)
     else:
         st.info("まず画像をアップロードしてください。")
+
+def render_sidebar():
+    with st.sidebar:
+        st.subheader("設定 / Filters")
+        view_mode = st.radio("履歴の表示形式", ["テーブル", "カード"], index=0, horizontal=True)
+        q = st.text_input("キーワード検索（ファイル名/本文/要約）")
+        col1, col2 = st.columns(2)
+        with col1:
+            date_from = st.date_input("開始日", value=None)
+        with col2:
+            date_to = st.date_input("終了日", value=None)
+        st.caption("ヒント：空欄なら全期間が対象")
+
+    return {"view_mode": view_mode, "q": q, "date_from": date_from, "date_to": date_to}
+
+# =====================
+# 学習進捗の可視化
+# =====================
+def render_progress_chart():
+    st.markdown("### 📊 学習進捗の見える化")
+    records: List[OcrRecord] = st.session_state.records
+    if not records:
+        st.info("まだデータがありません。OCRを実行すると進捗が表示されます。")
+        return
+    
+    df = df_from_records(records)
+    df["date"] = pd.to_datetime(df["created_at"]).dt.date
+    df["summary_len"] = df["summary"].apply(lambda x: len(x) if isinstance(x, str) else 0)
+
+    daily_counts = df.groupby("date").size()
+    daily_summary_len = df.groupby("date")["summary_len"].sum()
+
+    fig1, ax1 = plt.subplots()
+    daily_counts.plot(kind="bar", ax=ax1, title="日別OCR件数", rot=45)
+    st.pyplot(fig1)
+
+    fig2, ax2 = plt.subplots()
+    daily_summary_len.plot(kind="bar", ax=ax2, title="日別要約文字数", rot=45)
+    st.pyplot(fig2)
 
 # =====================
 # メイン
@@ -282,11 +306,13 @@ def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="📝", layout="wide")
     render_header()
     filters = render_sidebar()
-    tab_ocr, tab_hist = st.tabs(["🖼️ OCR 実行", "📚 履歴"])
+    tab_ocr, tab_hist, tab_progress = st.tabs(["🖼️ OCR 実行", "📚 履歴", "📊 進捗"])
     with tab_ocr:
         render_ocr_tab()
     with tab_hist:
         render_history(filters)
+    with tab_progress:
+        render_progress_chart()
 
 if __name__ == "__main__":
     main()
