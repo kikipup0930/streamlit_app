@@ -1,4 +1,4 @@
-# StudyRecord-UI2025 — Streamlit UI 強化版（全文モーダル＋コピー対応 + Azure実装）
+# StudyRecord-UI2025 — Streamlit UI 強化版（全文モーダル＋コピー対応 + Azure実装, サブタイトルなし）
 # -------------------------------------------------
 # 履歴カードに以下を追加：
 # - 「全文を表示」ボタンでモーダルに展開
@@ -6,7 +6,6 @@
 # Azure OCR / OpenAI / Blob 保存の実処理を統合
 # -------------------------------------------------
 
-import io
 import os
 import uuid
 import json
@@ -24,7 +23,7 @@ from azure.storage.blob import BlobServiceClient, ContentSettings
 # =====================
 # 設定
 # =====================
-APP_TITLE = "StudyRecord"
+APP_TITLE = "StudyRecord-UI2025"
 
 # Azure設定（Secretsから取得）
 AZURE_CV_ENDPOINT = os.getenv("AZURE_CV_ENDPOINT", "")
@@ -77,14 +76,12 @@ def run_azure_ocr(image_bytes: bytes) -> str:
         "Ocp-Apim-Subscription-Key": AZURE_CV_KEY,
         "Content-Type": "application/octet-stream",
     }
-    # 1) 解析リクエスト
     resp = requests.post(analyze_url, headers=headers, data=image_bytes, timeout=30)
     resp.raise_for_status()
     op_location = resp.headers.get("Operation-Location")
     if not op_location:
         raise RuntimeError("Operation-Location ヘッダがありません。")
 
-    # 2) ポーリング
     for _ in range(40):  # 最大 ~20秒
         time.sleep(0.5)
         poll = requests.get(op_location, headers={"Ocp-Apim-Subscription-Key": AZURE_CV_KEY}, timeout=30)
@@ -159,12 +156,7 @@ def export_csv(records: List[OcrRecord]) -> bytes:
 # =====================
 def render_header():
     st.markdown(
-        f"""
-        <div style="display:flex; align-items:baseline; gap:0.75rem;">
-            <h1 style="margin:0;">{APP_TITLE}</h1>
-            <span style="opacity:.7;">{APP_SUBTITLE}</span>
-        </div>
-        """,
+        f"<h1 style='margin:0;'>{APP_TITLE}</h1>",
         unsafe_allow_html=True,
     )
     st.divider()
@@ -179,6 +171,7 @@ def render_sidebar():
             date_from = st.date_input("開始日", value=None)
         with col2:
             date_to = st.date_input("終了日", value=None)
+        st.caption("ヒント：空欄なら全期間が対象")
 
         st.subheader("エクスポート")
         if st.session_state.records:
@@ -208,12 +201,10 @@ def matches_filters(rec: OcrRecord, q: str, dfrom, dto) -> bool:
     return True
 
 def copy_to_clipboard_button(label, text, key):
-    # base64 エンコードしたテキストをクリップボードコピー
     b64 = base64.b64encode(text.encode()).decode()
-    button_id = f"copy-btn-{key}"
     copy_js = f"navigator.clipboard.writeText(atob('{b64}'));"
     st.markdown(
-        f"<button id='{button_id}' onclick=\"{copy_js}\">{label}</button>",
+        f"<button id='copy-btn-{key}' onclick=\"{copy_js}\">{label}</button>",
         unsafe_allow_html=True,
     )
 
@@ -248,7 +239,6 @@ def render_history(filters: Dict[str, Any]):
                     if st.button("全文を表示", key=f"expand-summary-{rec.id}"):
                         st.session_state["_modal"] = ("要約", rec.summary)
 
-    # モーダル風表示
     if st.session_state.get("_modal"):
         title, content = st.session_state["_modal"]
         st.markdown(f"### {title} 全文")
