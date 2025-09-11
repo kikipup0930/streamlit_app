@@ -237,7 +237,6 @@ def render_history(filters: Dict[str, Any]):
             st.session_state["_modal"] = None
 
 def render_ocr_tab():
-    st.markdown("### 🖼️ OCR 実行")
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
     if uploaded is not None:
         st.image(uploaded, caption=uploaded.name, use_column_width=True)
@@ -268,7 +267,6 @@ def render_sidebar():
             date_from = st.date_input("開始日", value=None)
         with col2:
             date_to = st.date_input("終了日", value=None)
-        st.caption("ヒント：空欄なら全期間が対象")
 
     return {"view_mode": view_mode, "q": q, "date_from": date_from, "date_to": date_to}
 
@@ -276,7 +274,6 @@ def render_sidebar():
 # 学習進捗の可視化
 # =====================
 def render_progress_chart():
-    st.markdown("### 📊 学習進捗の見える化")
     records: List[OcrRecord] = st.session_state.records
     if not records:
         st.info("まだデータがありません。OCRを実行すると進捗が表示されます。")
@@ -306,7 +303,7 @@ def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="📝", layout="wide")
     render_header()
     filters = render_sidebar()
-    tab_ocr, tab_hist, tab_progress = st.tabs(["🖼️ OCR 実行", "📚 履歴", "📊 進捗"])
+    tab_ocr, tab_hist, tab_progress = st.tabs(["OCR", "履歴", "進捗"])
     with tab_ocr:
         render_ocr_tab()
     with tab_hist:
