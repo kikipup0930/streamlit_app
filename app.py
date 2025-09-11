@@ -1,8 +1,9 @@
-# StudyRecord-UI2025 — Streamlit UI 強化版（全文モーダル＋コピー対応）
+# StudyRecord-UI2025 — Streamlit UI 強化版（全文モーダル＋コピー対応 + Azure実装）
 # -------------------------------------------------
 # 履歴カードに以下を追加：
 # - 「全文を表示」ボタンでモーダルに展開
 # - 「コピー」ボタンで内容をクリップボードへ
+# Azure OCR / OpenAI / Blob 保存の実処理を統合
 # -------------------------------------------------
 
 import io
@@ -11,17 +12,19 @@ import uuid
 import json
 import base64
 import datetime as dt
+import time
+import requests
 from dataclasses import dataclass, asdict
 from typing import List, Dict, Any
 
 import pandas as pd
 import streamlit as st
+from azure.storage.blob import BlobServiceClient, ContentSettings
 
 # =====================
 # 設定
 # =====================
-APP_TITLE = "StudyRecord-UI2025"
-APP_SUBTITLE = "OCR結果の記録・要約をスマートに可視化"
+APP_TITLE = "StudyRecord"
 
 # Azure設定（Secretsから取得）
 AZURE_CV_ENDPOINT = os.getenv("AZURE_CV_ENDPOINT", "")
@@ -63,16 +66,89 @@ def df_from_records(records: List[OcrRecord]) -> pd.DataFrame:
     } for r in records])
 
 # =====================
-# Azure 関数（プレースホルダ）
+# Azure 関数
 # =====================
 def run_azure_ocr(image_bytes: bytes) -> str:
-    return "(OCR実処理省略)"
+    """Azure Computer Vision Read API v3.2 を使って OCR"""
+    if not AZURE_CV_ENDPOINT or not AZURE_CV_KEY:
+        return "(Azure CV 未設定)"
+    analyze_url = AZURE_CV_ENDPOINT.rstrip("/") + "/vision/v3.2/read/analyze?language=ja"
+    headers = {
+        "Ocp-Apim-Subscription-Key": AZURE_CV_KEY,
+        "Content-Type": "application/octet-stream",
+    }
+    # 1) 解析リクエスト
+    resp = requests.post(analyze_url, headers=headers, data=image_bytes, timeout=30)
+    resp.raise_for_status()
+    op_location = resp.headers.get("Operation-Location")
+    if not op_location:
+        raise RuntimeError("Operation-Location ヘッダがありません。")
+
+    # 2) ポーリング
+    for _ in range(40):  # 最大 ~20秒
+        time.sleep(0.5)
+        poll = requests.get(op_location, headers={"Ocp-Apim-Subscription-Key": AZURE_CV_KEY}, timeout=30)
+        poll.raise_for_status()
+        data = poll.json()
+        status = data.get("status")
+        if status == "succeeded":
+            lines = []
+            try:
+                for readres in data["analyzeResult"]["readResults"]:
+                    for line in readres.get("lines", []):
+                        lines.append(line.get("text", ""))
+            except Exception:
+                pass
+            return "\n".join(lines).strip()
+        if status == "failed":
+            raise RuntimeError(f"OCR が失敗しました: {data}")
+    raise TimeoutError("OCR のポーリングがタイムアウトしました。")
 
 def run_azure_summary(text: str) -> str:
-    return "(要約実処理省略)"
+    """Azure OpenAI (Chat Completions) で要約"""
+    if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_KEY or not AZURE_OPENAI_DEPLOYMENT:
+        return "(Azure OpenAI 未設定)"
+    url = (AZURE_OPENAI_ENDPOINT.rstrip("/") +
+           f"/openai/deployments/{AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version={AZURE_OPENAI_API_VERSION}")
+    headers = {
+        "api-key": AZURE_OPENAI_KEY,
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messages": [
+            {"role": "system", "content": "あなたは有能な日本語アシスタントです。OCR結果を箇条書きで簡潔に要約してください。"},
+            {"role": "user", "content": f"次のOCRテキストを要約:\n{text}"}
+        ],
+        "temperature": 0.2,
+        "max_tokens": 400,
+    }
+    resp = requests.post(url, headers=headers, json=payload, timeout=60)
+    resp.raise_for_status()
+    data = resp.json()
+    try:
+        return data["choices"][0]["message"]["content"].strip()
+    except Exception:
+        return ""
 
 def save_to_blob(record: OcrRecord) -> None:
-    pass
+    """Azure Blob Storage に JSON 保存"""
+    if not AZURE_STORAGE_CONNECTION_STRING or not AZURE_BLOB_CONTAINER:
+        return
+    bsc = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+    container = bsc.get_container_client(AZURE_BLOB_CONTAINER)
+    try:
+        container.create_container()
+    except Exception:
+        pass
+    blob_name = f"{record.created_at[:10]}/{record.id}.json"
+    payload = json.dumps(asdict(record), ensure_ascii=False).encode("utf-8")
+    content_settings = ContentSettings(content_type="application/json; charset=utf-8")
+    container.upload_blob(
+        name=blob_name,
+        data=payload,
+        overwrite=True,
+        content_settings=content_settings,
+    )
 
 def export_csv(records: List[OcrRecord]) -> bytes:
     df = df_from_records(records)
@@ -103,7 +179,6 @@ def render_sidebar():
             date_from = st.date_input("開始日", value=None)
         with col2:
             date_to = st.date_input("終了日", value=None)
-        st.caption("ヒント：空欄なら全期間が対象")
 
         st.subheader("エクスポート")
         if st.session_state.records:
@@ -187,7 +262,8 @@ def render_ocr_tab():
     if uploaded is not None:
         st.image(uploaded, caption=uploaded.name, use_column_width=True)
         if st.button("OCR を実行", use_container_width=True):
-            text = run_azure_ocr(uploaded.read())
+            image_bytes = uploaded.read()
+            text = run_azure_ocr(image_bytes)
             summary = run_azure_summary(text)
             rec = OcrRecord(
                 id=str(uuid.uuid4()),
@@ -195,9 +271,10 @@ def render_ocr_tab():
                 filename=uploaded.name,
                 text=text,
                 summary=summary,
-                meta={}
+                meta={"size": len(image_bytes)}
             )
             st.session_state.records.insert(0, rec)
+            save_to_blob(rec)
     else:
         st.info("まず画像をアップロードしてください。")
 
