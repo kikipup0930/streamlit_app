@@ -199,7 +199,7 @@ def copy_to_clipboard_button(label, text, key):
     )
 
 def render_history(filters: Dict[str, Any]):
-    st.markdown("### 📚 履歴")
+    st.markdown("### 履歴")
     records: List[OcrRecord] = st.session_state.records
     filtered = [r for r in records if matches_filters(r, filters["q"], filters["date_from"], filters["date_to"])]
 
