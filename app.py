@@ -1,18 +1,22 @@
-# StudyRecord-UI2025 — Streamlit UI 強化版（全文モーダル＋コピー対応 + Azure実装, Secrets名対応版）
+# StudyRecord-UI2025 — Streamlit UI 強化版（全文モーダル＋コピー対応 + Azure実装, CSV追記保存版）
+# -------------------------------------------------
+# - OCR: Azure Computer Vision
+# - 要約: Azure OpenAI
+# - 保存: Azure Blob Storage 上の単一CSVに追記
+# - UI: 履歴カードにコピー/全文モーダル対応
 # -------------------------------------------------
 
 import os
+import io
 import uuid
-import json
 import base64
 import datetime as dt
 import time
 import requests
-from dataclasses import dataclass, asdict
-from typing import List, Dict, Any
-
 import pandas as pd
 import streamlit as st
+from dataclasses import dataclass, asdict
+from typing import List, Dict, Any
 from azure.storage.blob import BlobServiceClient, ContentSettings
 
 # =====================
@@ -122,19 +126,39 @@ def run_azure_summary(text: str) -> str:
     except Exception:
         return ""
 
-def save_to_blob(record: OcrRecord) -> None:
-    """Azure Blob Storage に JSON 保存"""
+def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.csv") -> None:
+    """Azure Blob Storage 上の CSV に追記保存する"""
     if not AZURE_STORAGE_CONNECTION_STRING or not AZURE_BLOB_CONTAINER:
         return
+
     bsc = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
     container = bsc.get_container_client(AZURE_BLOB_CONTAINER)
     try:
         container.create_container()
     except Exception:
         pass
-    blob_name = f"{record.created_at[:10]}/{record.id}.json"
-    payload = json.dumps(asdict(record), ensure_ascii=False).encode("utf-8")
-    content_settings = ContentSettings(content_type="application/json; charset=utf-8")
+
+    # 1. 既存CSVをダウンロード
+    try:
+        blob_client = container.get_blob_client(blob_name)
+        stream = blob_client.download_blob()
+        existing = pd.read_csv(io.BytesIO(stream.readall()))
+    except Exception:
+        existing = pd.DataFrame(columns=["id", "created_at", "filename", "text", "summary"])
+
+    # 2. 新しい行を追加
+    new_row = {
+        "id": record.id,
+        "created_at": record.created_at,
+        "filename": record.filename,
+        "text": record.text,
+        "summary": record.summary,
+    }
+    updated = pd.concat([existing, pd.DataFrame([new_row])], ignore_index=True)
+
+    # 3. 丸ごとアップロード（上書き）
+    payload = updated.to_csv(index=False).encode("utf-8-sig")
+    content_settings = ContentSettings(content_type="text/csv; charset=utf-8")
     container.upload_blob(
         name=blob_name,
         data=payload,
@@ -259,7 +283,8 @@ def render_ocr_tab():
                 meta={"size": len(image_bytes)}
             )
             st.session_state.records.insert(0, rec)
-            save_to_blob(rec)
+            # CSV に追記保存
+            save_to_blob_csv(rec)
     else:
         st.info("まず画像をアップロードしてください。")
 
