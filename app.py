@@ -1,8 +1,8 @@
-# StudyRecord-UI2025 — Streamlit UI 強化版（全文モーダル＋コピー対応 + Azure実装, CSV追記保存版）
+# StudyRecord-UI2025 — Streamlit UI（全文モーダル＋コピー対応 + Azure実装, CSV追記保存, ローカル保存なし）
 # -------------------------------------------------
 # - OCR: Azure Computer Vision
 # - 要約: Azure OpenAI
-# - 保存: Azure Blob Storage 上の単一CSVに追記
+# - 保存: Azure Blob Storage 上の単一CSVに追記（ローカル保存なし）
 # - UI: 履歴カードにコピー/全文モーダル対応
 # -------------------------------------------------
 
@@ -15,7 +15,7 @@ import time
 import requests
 import pandas as pd
 import streamlit as st
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import List, Dict, Any
 from azure.storage.blob import BlobServiceClient, ContentSettings
 
@@ -127,7 +127,7 @@ def run_azure_summary(text: str) -> str:
         return ""
 
 def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.csv") -> None:
-    """Azure Blob Storage 上の CSV に追記保存する"""
+    """Azure Blob Storage 上の CSV に追記保存する（ローカル保存なし）"""
     if not AZURE_STORAGE_CONNECTION_STRING or not AZURE_BLOB_CONTAINER:
         return
 
@@ -166,10 +166,6 @@ def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.cs
         content_settings=content_settings,
     )
 
-def export_csv(records: List[OcrRecord]) -> bytes:
-    df = df_from_records(records)
-    return df.to_csv(index=False).encode("utf-8-sig")
-
 # =====================
 # UI ヘルパ
 # =====================
@@ -192,18 +188,7 @@ def render_sidebar():
             date_to = st.date_input("終了日", value=None)
         st.caption("ヒント：空欄なら全期間が対象")
 
-        st.subheader("エクスポート")
-        if st.session_state.records:
-            csv_bytes = export_csv(st.session_state.records)
-            st.download_button(
-                label="CSV をダウンロード",
-                data=csv_bytes,
-                file_name="studyrecord_history.csv",
-                mime="text/csv",
-                use_container_width=True,
-            )
-        else:
-            st.write("履歴がありません。OCR 実行後にダウンロードできます。")
+        # ローカル保存やダウンロードは行わない
 
     return {"view_mode": view_mode, "q": q, "date_from": date_from, "date_to": date_to}
 
@@ -283,7 +268,7 @@ def render_ocr_tab():
                 meta={"size": len(image_bytes)}
             )
             st.session_state.records.insert(0, rec)
-            # CSV に追記保存
+            # Azure Blob CSV に追記保存
             save_to_blob_csv(rec)
     else:
         st.info("まず画像をアップロードしてください。")
