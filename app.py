@@ -1,9 +1,4 @@
-# StudyRecord-UI2025 — Streamlit UI 強化版（全文モーダル＋コピー対応 + Azure実装, サブタイトルなし）
-# -------------------------------------------------
-# 履歴カードに以下を追加：
-# - 「全文を表示」ボタンでモーダルに展開
-# - 「コピー」ボタンで内容をクリップボードへ
-# Azure OCR / OpenAI / Blob 保存の実処理を統合
+# StudyRecord-UI2025 — Streamlit UI 強化版（全文モーダル＋コピー対応 + Azure実装, Secrets名対応版）
 # -------------------------------------------------
 
 import os
@@ -21,19 +16,19 @@ import streamlit as st
 from azure.storage.blob import BlobServiceClient, ContentSettings
 
 # =====================
-# 設定
+# 設定 (Streamlit Secretsから取得)
 # =====================
-APP_TITLE = "StudyRecord-UI2025"
+APP_TITLE = "StudyRecord"
 
-# Azure設定（Secretsから取得）
-AZURE_CV_ENDPOINT = os.getenv("AZURE_CV_ENDPOINT", "")
-AZURE_CV_KEY = os.getenv("AZURE_CV_KEY", "")
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
-AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY", "")
-AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-35-turbo")
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
-AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
-AZURE_BLOB_CONTAINER = os.getenv("AZURE_BLOB_CONTAINER", "ocr-results")
+AZURE_CV_ENDPOINT = st.secrets.get("AZURE_ENDPOINT", "")
+AZURE_CV_KEY = st.secrets.get("AZURE_KEY", "")
+AZURE_STORAGE_CONNECTION_STRING = st.secrets.get("AZURE_CONNECTION_STRING", "")
+AZURE_BLOB_CONTAINER = st.secrets.get("AZURE_CONTAINER", "")
+
+AZURE_OPENAI_ENDPOINT = st.secrets.get("AZURE_OPENAI_ENDPOINT", "")
+AZURE_OPENAI_KEY = st.secrets.get("AZURE_OPENAI_API_KEY", "")
+AZURE_OPENAI_DEPLOYMENT = st.secrets.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-35-turbo")
+AZURE_OPENAI_API_VERSION = st.secrets.get("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
 
 # =====================
 # データモデル
@@ -41,7 +36,7 @@ AZURE_BLOB_CONTAINER = os.getenv("AZURE_BLOB_CONTAINER", "ocr-results")
 @dataclass
 class OcrRecord:
     id: str
-    created_at: str  # ISO8601
+    created_at: str
     filename: str
     text: str
     summary: str
@@ -82,7 +77,7 @@ def run_azure_ocr(image_bytes: bytes) -> str:
     if not op_location:
         raise RuntimeError("Operation-Location ヘッダがありません。")
 
-    for _ in range(40):  # 最大 ~20秒
+    for _ in range(40):
         time.sleep(0.5)
         poll = requests.get(op_location, headers={"Ocp-Apim-Subscription-Key": AZURE_CV_KEY}, timeout=30)
         poll.raise_for_status()
