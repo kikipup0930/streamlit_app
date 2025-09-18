@@ -237,7 +237,7 @@ def render_history(filters: Dict[str, Any]):
 def render_ocr_tab():
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
     if uploaded is not None:
-        st.image(uploaded, caption=uploaded.name, use_column_width=True)
+        st.image(uploaded, caption=uploaded.name, use_container_width=True)
         if st.button("OCR を実行", use_container_width=True):
             image_bytes = uploaded.read()
             text = run_azure_ocr(image_bytes)
