@@ -283,7 +283,6 @@ def render_sidebar():
 # 学習進捗の可視化
 # =====================
 def render_progress_chart():
-    st.markdown("### 学習進捗")
     records: List[OcrRecord] = st.session_state.records
     if not records:
         st.info("まだデータがありません。OCRを実行すると進捗が表示されます。")
