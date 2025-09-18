@@ -178,17 +178,30 @@ def render_header():
     st.markdown(f"<h1 style='margin:0;'>{APP_TITLE}</h1>", unsafe_allow_html=True)
     st.divider()
 
-def matches_filters(rec: OcrRecord, q: str, dfrom, dto) -> bool:
+def matches_filters(rec: OcrRecord, q: str, period: str, subject_filter: str) -> bool:
     if q:
         q_lower = q.lower()
         target = f"{rec.filename} {rec.text} {rec.summary}".lower()
         if q_lower not in target:
             return False
-    if dfrom and rec.created_at[:10] < dfrom.isoformat():
+
+    # ★ 日付フィルタ
+    if period != "すべて":
+        rec_date = dt.date.fromisoformat(rec.created_at[:10])
+        today = dt.date.today()
+        if period == "直近7日" and rec_date < today - dt.timedelta(days=7):
+            return False
+        elif period == "直近30日" and rec_date < today - dt.timedelta(days=30):
+            return False
+        elif period == "今月" and rec_date < today.replace(day=1):
+            return False
+
+    # 科目フィルタ
+    if subject_filter != "すべて" and rec.subject != subject_filter:
         return False
-    if dto and rec.created_at[:10] > dto.isoformat():
-        return False
+
     return True
+
 
 def copy_to_clipboard_button(label, text, key):
     b64 = base64.b64encode((text or "").encode()).decode()
@@ -198,9 +211,13 @@ def copy_to_clipboard_button(label, text, key):
 def render_history(filters: Dict[str, Any]):
     st.markdown("### 履歴")
     records: List[OcrRecord] = st.session_state.records
-    filtered = [r for r in records if matches_filters(r, filters["q"], filters["date_from"], filters["date_to"])]
-    if filters["subject_filter"] != "すべて":
-        filtered = [r for r in filtered if r.subject == filters["subject_filter"]]
+    filtered = [r for r in records if matches_filters(
+        r,
+        filters["q"],
+        filters["period"],           # ← ここを period に変更
+        filters["subject_filter"]
+    )]
+
 
     if not filtered:
         st.info("条件に合致する履歴はありません。")
@@ -274,8 +291,7 @@ def render_sidebar():
     return {
         "view_mode": view_mode,
         "q": q,
-        "date_from": date_from,
-        "date_to": date_to,
+        "period": period,
         "subject_filter": subject_filter,
     }
 
