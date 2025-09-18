@@ -46,6 +46,7 @@ class OcrRecord:
     filename: str
     text: str
     summary: str
+    subject: str
     meta: Dict[str, Any]
 
 # =====================
@@ -146,7 +147,8 @@ def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.cs
         stream = blob_client.download_blob()
         existing = pd.read_csv(io.BytesIO(stream.readall()))
     except Exception:
-        existing = pd.DataFrame(columns=["id", "created_at", "filename", "text", "summary"])
+        existing = pd.DataFrame(columns=["id", "created_at", "filename", "text", "summary", "subject"])
+
 
     # 2. 新しい行を追加
     new_row = {
@@ -155,6 +157,7 @@ def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.cs
         "filename": record.filename,
         "text": record.text,
         "summary": record.summary,
+        "subject": record.subject,
     }
     updated = pd.concat([existing, pd.DataFrame([new_row])], ignore_index=True)
 
@@ -202,6 +205,9 @@ def render_history(filters: Dict[str, Any]):
     st.markdown("### 履歴")
     records: List[OcrRecord] = st.session_state.records
     filtered = [r for r in records if matches_filters(r, filters["q"], filters["date_from"], filters["date_to"])]
+    # ★科目フィルタ適用
+    if filters["subject_filter"] != "すべて":
+        filtered = [r for r in filtered if r.subject == filters["subject_filter"]]
 
     if not filtered:
         st.info("条件に合致する履歴はありません。")
@@ -220,7 +226,7 @@ def render_history(filters: Dict[str, Any]):
                 # 要約（メイン表示）
                 st.markdown("**要約**")
                 st.write(rec.summary if rec.summary else "-")
-                copy_to_clipboard_button("コピー（要約）", rec.summary, f"summary-{rec.id}")
+                copy_to_clipboard_button("コピー", rec.summary, f"summary-{rec.id}")
 
                 # OCRテキスト（折りたたみ）
                 with st.expander("OCR全文を表示", expanded=False):
@@ -230,6 +236,17 @@ def render_history(filters: Dict[str, Any]):
 
 def render_ocr_tab():
     st.markdown("### OCR")
+
+    # ★科目入力欄（自由入力＋リスト更新）
+    if "subjects" not in st.session_state:
+        st.session_state["subjects"] = []  # 初期リスト
+
+    new_subject = st.text_input("科目を入力（新しい科目も追加可能）")
+    if new_subject and new_subject not in st.session_state["subjects"]:
+        st.session_state["subjects"].append(new_subject)
+
+    subject = st.selectbox("科目を選択", st.session_state["subjects"], index=0)
+
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
     if uploaded is not None:
         st.image(uploaded, caption=uploaded.name, use_container_width=True)
@@ -243,12 +260,12 @@ def render_ocr_tab():
                 filename=uploaded.name,
                 text=text,
                 summary=summary,
+                subject=subject,   # ★ここに保存
                 meta={"size": len(image_bytes)}
             )
             st.session_state.records.insert(0, rec)
             save_to_blob_csv(rec)
-    else:
-        st.info("まず画像をアップロードしてください。")
+
 
 def render_sidebar():
     with st.sidebar:
@@ -261,16 +278,22 @@ def render_sidebar():
         with col2:
             date_to = st.date_input("終了日", value=None)
 
-        # ★ 並び順の追加
-        sort_order = st.radio("並び順", ["新しい順", "古い順"], index=0, horizontal=True)
+        # ★科目フィルタ
+        if "subjects" in st.session_state:
+            subject_filter = st.selectbox("科目フィルタ", ["すべて"] + st.session_state["subjects"])
+        else:
+            subject_filter = "すべて"
+
+        st.caption("ヒント：空欄なら全期間が対象")
 
     return {
         "view_mode": view_mode,
         "q": q,
         "date_from": date_from,
         "date_to": date_to,
-        "sort_order": sort_order,
+        "subject_filter": subject_filter,   # ★追加
     }
+
 
 
 # =====================
