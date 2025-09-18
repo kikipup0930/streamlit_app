@@ -358,6 +358,8 @@ def render_progress_chart():
         if prop:
             ax5.set_ylabel("", fontproperties=prop)  # yラベルは消す
             ax5.set_title("科目別OCR件数（割合）", fontproperties=prop, fontsize=16)
+            for t in ax5.texts:
+                t.set_fontproperties(prop)
         else:
             ax5.set_ylabel("")
             ax5.set_title("科目別OCR件数（割合）")
