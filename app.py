@@ -284,8 +284,6 @@ def render_sidebar():
         else:
             subject_filter = "すべて"
 
-        st.caption("ヒント：空欄なら全期間が対象")
-
     return {
         "view_mode": view_mode,
         "q": q,
@@ -320,6 +318,17 @@ def render_progress_chart():
     fig2, ax2 = plt.subplots()
     daily_summary_len.plot(kind="bar", ax=ax2, title="日別要約文字数", rot=45)
     st.pyplot(fig2)
+    
+    if "subject" in df.columns:
+        subject_counts = df.groupby("subject").size()
+        fig3, ax3 = plt.subplots()
+        subject_counts.plot(kind="bar", ax=ax3, title="科目別OCR件数", rot=45)
+        st.pyplot(fig3)
+
+        subject_summary_len = df.groupby("subject")["summary_len"].sum()
+        fig4, ax4 = plt.subplots()
+        subject_summary_len.plot(kind="bar", ax=ax4, title="科目別要約文字数", rot=45)
+        st.pyplot(fig4)
 
 # =====================
 # メイン
