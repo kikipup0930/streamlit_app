@@ -379,6 +379,35 @@ def render_progress_chart():
         ax4.grid(axis="y", linestyle="--", alpha=0.7)
         st.pyplot(fig4, use_container_width=True)
 
+        # --- 円グラフ1: 科目別OCR件数の割合 ---
+        fig5, ax5 = plt.subplots()
+        subject_counts.plot(
+            kind="pie", ax=ax5, autopct="%1.1f%%", startangle=90,
+            colors=["#FF9800", "#2196F3", "#4CAF50", "#9C27B0", "#E91E63"]
+        )
+        if prop:
+            ax5.set_ylabel("", fontproperties=prop)  # yラベルは消す
+            ax5.set_title("科目別OCR件数（割合）", fontproperties=prop, fontsize=16)
+        else:
+            ax5.set_ylabel("")
+            ax5.set_title("科目別OCR件数（割合）")
+        st.pyplot(fig5, use_container_width=True)
+
+        # --- 円グラフ2: 科目別要約文字数の割合 ---
+        fig6, ax6 = plt.subplots()
+        subject_summary_len.plot(
+            kind="pie", ax=ax6, autopct="%1.1f%%", startangle=90,
+            colors=["#3F51B5", "#009688", "#FFC107", "#795548", "#607D8B"]
+        )
+        if prop:
+            ax6.set_ylabel("", fontproperties=prop)
+            ax6.set_title("科目別要約文字数（割合）", fontproperties=prop, fontsize=16)
+        else:
+            ax6.set_ylabel("")
+            ax6.set_title("科目別要約文字数（割合）")
+        st.pyplot(fig6, use_container_width=True)
+
+
 
 
 # =====================
