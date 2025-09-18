@@ -277,11 +277,9 @@ def render_sidebar():
         st.subheader("設定 / Filters")
         view_mode = st.radio("履歴の表示形式", ["テーブル", "カード"], index=0, horizontal=True)
         q = st.text_input("キーワード検索（ファイル名/本文/要約）")
-        col1, col2 = st.columns(2)
-        with col1:
-            date_from = st.date_input("開始日", value=None)
-        with col2:
-            date_to = st.date_input("終了日", value=None)
+
+        # ★ 期間プリセット（忘れずに定義！）
+        period = st.selectbox("期間フィルタ", ["すべて", "直近7日", "直近30日", "今月"])
 
         subject_filter = st.selectbox(
             "科目フィルタ",
@@ -291,7 +289,7 @@ def render_sidebar():
     return {
         "view_mode": view_mode,
         "q": q,
-        "period": period,
+        "period": period,            # ← これでエラー消える
         "subject_filter": subject_filter,
     }
 
