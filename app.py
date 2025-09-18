@@ -341,6 +341,10 @@ def render_progress_chart():
             ax3.set_title("科目別OCR件数", fontproperties=prop)
             ax3.set_xlabel("科目", fontproperties=prop)
             ax3.set_ylabel("件数", fontproperties=prop)
+            for label in ax3.get_xticklabels():
+                label.set_fontproperties(prop)
+            for label in ax3.get_yticklabels():
+                label.set_fontproperties(prop)
         else:
             ax3.set_title("科目別OCR件数")
             ax3.set_xlabel("科目")
