@@ -306,6 +306,13 @@ def render_progress_chart():
         st.info("まだデータがありません。OCRを実行すると進捗が表示されます。")
         return
     
+    # ========= 日本語フォント設定 =========
+    import matplotlib.font_manager as fm
+    font_path = "fonts/NotoSansJP-Regular.ttf"  # 置いたフォントへのパス
+    prop = fm.FontProperties(fname=font_path)
+    plt.rcParams['font.family'] = prop.get_name()
+    # =====================================
+
     df = df_from_records(records)
     df["date"] = pd.to_datetime(df["created_at"]).dt.date
     df["summary_len"] = df["summary"].apply(lambda x: len(x) if isinstance(x, str) else 0)
@@ -331,6 +338,7 @@ def render_progress_chart():
         fig4, ax4 = plt.subplots()
         subject_summary_len.plot(kind="bar", ax=ax4, title="科目別要約文字数", rot=45)
         st.pyplot(fig4)
+
 
 # =====================
 # メイン
