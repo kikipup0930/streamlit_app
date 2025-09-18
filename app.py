@@ -266,7 +266,7 @@ def render_sidebar():
 # 学習進捗の可視化
 # =====================
 def render_progress_chart():
-    st.markdown("### 学習進捗の見える化")
+    st.markdown("### 学習進捗")
     records: List[OcrRecord] = st.session_state.records
     if not records:
         st.info("まだデータがありません。OCRを実行すると進捗が表示されます。")
@@ -296,7 +296,7 @@ def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="📝", layout="wide")
     render_header()
     filters = render_sidebar()
-    tab_ocr, tab_hist, tab_progress = st.tabs(["OCR 実行", "履歴", "進捗"])
+    tab_ocr, tab_hist, tab_progress = st.tabs(["OCR", "履歴", "進捗"])
     with tab_ocr:
         render_ocr_tab()
     with tab_hist:
