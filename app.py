@@ -289,14 +289,32 @@ def render_progress_chart():
         st.info("まだデータがありません。OCRを実行すると進捗が表示されます。")
         return
 
+    # ========= 日本語フォント設定 =========
     import matplotlib.font_manager as fm
     font_path = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansJP-Regular.ttf")
     prop = fm.FontProperties(fname=font_path) if os.path.exists(font_path) else None
+    # =====================================
 
+    # ========= データ準備 =========
     df = df_from_records(records)
     df["date"] = pd.to_datetime(df["created_at"]).dt.date
     df["summary_len"] = df["summary"].apply(lambda x: len(x) if isinstance(x, str) else 0)
 
+    # ========= サマリー計算 =========
+    total_ocr = len(df)  # 総OCR件数
+    last7 = df[df["date"] >= (dt.date.today() - dt.timedelta(days=7))]
+    recent_ocr = len(last7)
+    recent_summary_len = last7["summary_len"].sum()
+
+    # ========= サマリーカード表示 =========
+    col1, col2, col3 = st.columns(3)
+    col1.metric("総OCR件数", f"{total_ocr} 件")
+    col2.metric("直近7日間のOCR件数", f"{recent_ocr} 件")
+    col3.metric("直近7日間の要約文字数", f"{recent_summary_len} 文字")
+
+    st.divider()
+
+    # ========= グラフ描画 =========
     daily_counts = df.groupby("date").size()
     daily_summary_len = df.groupby("date")["summary_len"].sum()
 
@@ -361,6 +379,7 @@ def render_progress_chart():
                 label.set_fontsize(10)
         ax4.grid(axis="y", linestyle="--", alpha=0.7)
         st.pyplot(fig4, use_container_width=True)
+
 
 
 # =====================
