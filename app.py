@@ -303,13 +303,11 @@ def render_progress_chart():
     total_ocr = len(df)  # 総OCR件数
     last7 = df[df["date"] >= (dt.date.today() - dt.timedelta(days=7))]
     recent_ocr = len(last7)
-    recent_summary_len = last7["summary_len"].sum()
 
     # ========= サマリーカード表示 =========
     col1, col2, col3 = st.columns(3)
     col1.metric("総OCR件数", f"{total_ocr} 件")
     col2.metric("直近7日間のOCR件数", f"{recent_ocr} 件")
-    col3.metric("直近7日間の要約文字数", f"{recent_summary_len} 文字")
 
     st.divider()
 
@@ -329,19 +327,6 @@ def render_progress_chart():
             label.set_fontsize(10)
     ax1.grid(axis="y", linestyle="--", alpha=0.7)
     st.pyplot(fig1, use_container_width=True)
-
-    # --- グラフ2: 日別要約文字数 ---
-    fig2, ax2 = plt.subplots()
-    daily_summary_len.plot(kind="bar", ax=ax2, rot=45, color="#4CAF50")
-    if prop:
-        ax2.set_title("日別要約文字数", fontproperties=prop, fontsize=16)
-        ax2.set_xlabel("日付", fontproperties=prop, fontsize=12)
-        ax2.set_ylabel("文字数", fontproperties=prop, fontsize=12)
-        for label in ax2.get_xticklabels() + ax2.get_yticklabels():
-            label.set_fontproperties(prop)
-            label.set_fontsize(10)
-    ax2.grid(axis="y", linestyle="--", alpha=0.7)
-    st.pyplot(fig2, use_container_width=True)
 
     if "subject" in df.columns:
         subject_counts = df.groupby("subject").size()
@@ -363,21 +348,6 @@ def render_progress_chart():
         ax3.grid(axis="y", linestyle="--", alpha=0.7)
         st.pyplot(fig3, use_container_width=True)
 
-        # --- グラフ4: 科目別要約文字数 ---
-        fig4, ax4 = plt.subplots()
-        subject_summary_len.plot(
-            kind="bar", ax=ax4, rot=45,
-            color=["#3F51B5", "#009688", "#FFC107", "#795548", "#607D8B"]
-        )
-        if prop:
-            ax4.set_title("科目別要約文字数", fontproperties=prop, fontsize=16)
-            ax4.set_xlabel("科目", fontproperties=prop, fontsize=12)
-            ax4.set_ylabel("文字数", fontproperties=prop, fontsize=12)
-            for label in ax4.get_xticklabels() + ax4.get_yticklabels():
-                label.set_fontproperties(prop)
-                label.set_fontsize(10)
-        ax4.grid(axis="y", linestyle="--", alpha=0.7)
-        st.pyplot(fig4, use_container_width=True)
 
         # --- 円グラフ1: 科目別OCR件数の割合 ---
         fig5, ax5 = plt.subplots()
@@ -392,20 +362,6 @@ def render_progress_chart():
             ax5.set_ylabel("")
             ax5.set_title("科目別OCR件数（割合）")
         st.pyplot(fig5, use_container_width=True)
-
-        # --- 円グラフ2: 科目別要約文字数の割合 ---
-        fig6, ax6 = plt.subplots()
-        subject_summary_len.plot(
-            kind="pie", ax=ax6, autopct="%1.1f%%", startangle=90,
-            colors=["#3F51B5", "#009688", "#FFC107", "#795548", "#607D8B"]
-        )
-        if prop:
-            ax6.set_ylabel("", fontproperties=prop)
-            ax6.set_title("科目別要約文字数（割合）", fontproperties=prop, fontsize=16)
-        else:
-            ax6.set_ylabel("")
-            ax6.set_title("科目別要約文字数（割合）")
-        st.pyplot(fig6, use_container_width=True)
 
 
 
