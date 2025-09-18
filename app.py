@@ -202,6 +202,12 @@ def render_history(filters: Dict[str, Any]):
     st.markdown("### 履歴")
     records: List[OcrRecord] = st.session_state.records
     filtered = [r for r in records if matches_filters(r, filters["q"], filters["date_from"], filters["date_to"])]
+    # 並び順を適用
+    if filters["sort_order"] == "新しい順":
+     filtered = sorted(filtered, key=lambda r: r.created_at, reverse=True)
+    else:
+     filtered = sorted(filtered, key=lambda r: r.created_at)
+
 
     if not filtered:
         st.info("条件に合致する履歴はありません。")
@@ -258,9 +264,20 @@ def render_sidebar():
             date_from = st.date_input("開始日", value=None)
         with col2:
             date_to = st.date_input("終了日", value=None)
+
+        # ★ 並び順の追加
+        sort_order = st.radio("並び順", ["新しい順", "古い順"], index=0, horizontal=True)
+
         st.caption("ヒント：空欄なら全期間が対象")
 
-    return {"view_mode": view_mode, "q": q, "date_from": date_from, "date_to": date_to}
+    return {
+        "view_mode": view_mode,
+        "q": q,
+        "date_from": date_from,
+        "date_to": date_to,
+        "sort_order": sort_order,
+    }
+
 
 # =====================
 # 学習進捗の可視化
