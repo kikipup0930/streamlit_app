@@ -289,15 +289,9 @@ def render_progress_chart():
         st.info("まだデータがありません。OCRを実行すると進捗が表示されます。")
         return
 
-    # ========= 日本語フォント設定（確実版：各ラベル/タイトルに指定） =========
     import matplotlib.font_manager as fm
     font_path = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansJP-Regular.ttf")
-    if not os.path.exists(font_path):
-        st.warning(f"日本語フォントが見つかりませんでした: {font_path}（英字フォントで表示します）")
-        prop = None
-    else:
-        prop = fm.FontProperties(fname=font_path)
-    # =====================================================================
+    prop = fm.FontProperties(fname=font_path) if os.path.exists(font_path) else None
 
     df = df_from_records(records)
     df["date"] = pd.to_datetime(df["created_at"]).dt.date
@@ -308,62 +302,66 @@ def render_progress_chart():
 
     # --- グラフ1: 日別OCR件数 ---
     fig1, ax1 = plt.subplots()
-    daily_counts.plot(kind="bar", ax=ax1, rot=45)
+    daily_counts.plot(kind="bar", ax=ax1, rot=45, color="#2196F3")
     if prop:
-        ax1.set_title("日別OCR件数", fontproperties=prop)
-        ax1.set_xlabel("日付", fontproperties=prop)
-        ax1.set_ylabel("件数", fontproperties=prop)
-    else:
-        ax1.set_title("日別OCR件数")
-        ax1.set_xlabel("日付")
-        ax1.set_ylabel("件数")
+        ax1.set_title("日別OCR件数", fontproperties=prop, fontsize=16)
+        ax1.set_xlabel("日付", fontproperties=prop, fontsize=12)
+        ax1.set_ylabel("件数", fontproperties=prop, fontsize=12)
+        for label in ax1.get_xticklabels() + ax1.get_yticklabels():
+            label.set_fontproperties(prop)
+            label.set_fontsize(10)
+    ax1.grid(axis="y", linestyle="--", alpha=0.7)
     st.pyplot(fig1, use_container_width=True)
 
     # --- グラフ2: 日別要約文字数 ---
     fig2, ax2 = plt.subplots()
-    daily_summary_len.plot(kind="bar", ax=ax2, rot=45)
+    daily_summary_len.plot(kind="bar", ax=ax2, rot=45, color="#4CAF50")
     if prop:
-        ax2.set_title("日別要約文字数", fontproperties=prop)
-        ax2.set_xlabel("日付", fontproperties=prop)
-        ax2.set_ylabel("文字数", fontproperties=prop)
-    else:
-        ax2.set_title("日別要約文字数")
-        ax2.set_xlabel("日付")
-        ax2.set_ylabel("文字数")
+        ax2.set_title("日別要約文字数", fontproperties=prop, fontsize=16)
+        ax2.set_xlabel("日付", fontproperties=prop, fontsize=12)
+        ax2.set_ylabel("文字数", fontproperties=prop, fontsize=12)
+        for label in ax2.get_xticklabels() + ax2.get_yticklabels():
+            label.set_fontproperties(prop)
+            label.set_fontsize(10)
+    ax2.grid(axis="y", linestyle="--", alpha=0.7)
     st.pyplot(fig2, use_container_width=True)
 
     if "subject" in df.columns:
-        # --- グラフ3: 科目別OCR件数 ---
         subject_counts = df.groupby("subject").size()
+        subject_summary_len = df.groupby("subject")["summary_len"].sum()
+
+        # --- グラフ3: 科目別OCR件数 ---
         fig3, ax3 = plt.subplots()
-        subject_counts.plot(kind="bar", ax=ax3, rot=45)
+        subject_counts.plot(
+            kind="bar", ax=ax3, rot=45,
+            color=["#FF9800", "#2196F3", "#4CAF50", "#9C27B0", "#E91E63"]
+        )
         if prop:
-            ax3.set_title("科目別OCR件数", fontproperties=prop)
-            ax3.set_xlabel("科目", fontproperties=prop)
-            ax3.set_ylabel("件数", fontproperties=prop)
-            for label in ax3.get_xticklabels():
+            ax3.set_title("科目別OCR件数", fontproperties=prop, fontsize=16)
+            ax3.set_xlabel("科目", fontproperties=prop, fontsize=12)
+            ax3.set_ylabel("件数", fontproperties=prop, fontsize=12)
+            for label in ax3.get_xticklabels() + ax3.get_yticklabels():
                 label.set_fontproperties(prop)
-            for label in ax3.get_yticklabels():
-                label.set_fontproperties(prop)
-        else:
-            ax3.set_title("科目別OCR件数")
-            ax3.set_xlabel("科目")
-            ax3.set_ylabel("件数")
+                label.set_fontsize(10)
+        ax3.grid(axis="y", linestyle="--", alpha=0.7)
         st.pyplot(fig3, use_container_width=True)
 
         # --- グラフ4: 科目別要約文字数 ---
-        subject_summary_len = df.groupby("subject")["summary_len"].sum()
         fig4, ax4 = plt.subplots()
-        subject_summary_len.plot(kind="bar", ax=ax4, rot=45)
+        subject_summary_len.plot(
+            kind="bar", ax=ax4, rot=45,
+            color=["#3F51B5", "#009688", "#FFC107", "#795548", "#607D8B"]
+        )
         if prop:
-            ax4.set_title("科目別要約文字数", fontproperties=prop)
-            ax4.set_xlabel("科目", fontproperties=prop)
-            ax4.set_ylabel("文字数", fontproperties=prop)
-        else:
-            ax4.set_title("科目別要約文字数")
-            ax4.set_xlabel("科目")
-            ax4.set_ylabel("文字数")
+            ax4.set_title("科目別要約文字数", fontproperties=prop, fontsize=16)
+            ax4.set_xlabel("科目", fontproperties=prop, fontsize=12)
+            ax4.set_ylabel("文字数", fontproperties=prop, fontsize=12)
+            for label in ax4.get_xticklabels() + ax4.get_yticklabels():
+                label.set_fontproperties(prop)
+                label.set_fontsize(10)
+        ax4.grid(axis="y", linestyle="--", alpha=0.7)
         st.pyplot(fig4, use_container_width=True)
+
 
 # =====================
 # メイン
