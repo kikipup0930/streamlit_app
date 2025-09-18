@@ -202,12 +202,6 @@ def render_history(filters: Dict[str, Any]):
     st.markdown("### 履歴")
     records: List[OcrRecord] = st.session_state.records
     filtered = [r for r in records if matches_filters(r, filters["q"], filters["date_from"], filters["date_to"])]
-    # 並び順を適用
-    if filters["sort_order"] == "新しい順":
-     filtered = sorted(filtered, key=lambda r: r.created_at, reverse=True)
-    else:
-     filtered = sorted(filtered, key=lambda r: r.created_at)
-
 
     if not filtered:
         st.info("条件に合致する履歴はありません。")
@@ -219,18 +213,20 @@ def render_history(filters: Dict[str, Any]):
     else:
         for rec in filtered:
             with st.container(border=True):
-                st.markdown(f"**{rec.filename}**  ")
-                st.caption(f"ID: `{rec.id}` / 作成日: {rec.created_at}")
+                # ヘッダー部分（ファイル名と日付）
+                st.markdown(f"### {rec.filename}")
+                st.caption(f"作成日: {rec.created_at} | ID: {rec.id}")
 
-                # 要約（常に表示）
+                # 要約（メイン表示）
                 st.markdown("**要約**")
                 st.write(rec.summary if rec.summary else "-")
-                copy_to_clipboard_button("コピー", rec.summary, f"summary-{rec.id}")
+                copy_to_clipboard_button("コピー（要約）", rec.summary, f"summary-{rec.id}")
 
-                # OCRテキスト（折りたたみ表示）
+                # OCRテキスト（折りたたみ）
                 with st.expander("OCR全文を表示", expanded=False):
                     st.write(rec.text if rec.text else "-")
-                    copy_to_clipboard_button("コピー", rec.text, f"text-{rec.id}")
+                    copy_to_clipboard_button("コピー（OCR全文）", rec.text, f"text-{rec.id}")
+
 
 def render_ocr_tab():
     st.markdown("### OCR")
@@ -267,8 +263,6 @@ def render_sidebar():
 
         # ★ 並び順の追加
         sort_order = st.radio("並び順", ["新しい順", "古い順"], index=0, horizontal=True)
-
-        st.caption("ヒント：空欄なら全期間が対象")
 
     return {
         "view_mode": view_mode,
