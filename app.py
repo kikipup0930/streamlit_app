@@ -308,7 +308,12 @@ def render_progress_chart():
     
     # ========= 日本語フォント設定 =========
     import matplotlib.font_manager as fm
-    font_path = "fonts/fonts/NotoSansJP-Regular.ttf"  # 置いたフォントへのパス
+    font_path = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansJP-Regular.ttf")
+    if not os.path.exists(font_path):
+     st.error(f"フォントが見つかりません: {font_path}")
+    else:
+     prop = fm.FontProperties(fname=font_path)
+    plt.rcParams['font.family'] = prop.get_name()
     prop = fm.FontProperties(fname=font_path)
     plt.rcParams['font.family'] = prop.get_name()
     # =====================================
