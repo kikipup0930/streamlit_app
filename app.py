@@ -57,7 +57,7 @@ def _now_iso() -> str:
 
 def df_from_records(records: List[OcrRecord]) -> pd.DataFrame:
     if not records:
-        return pd.DataFrame(columns=["id", "created_at", "filename", "text", "summary"]) 
+        return pd.DataFrame(columns=["id", "created_at", "filename", "text", "summary", "subject"])
     return pd.DataFrame([{
         "id": r.id,
         "created_at": r.created_at,
@@ -149,8 +149,6 @@ def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.cs
         existing = pd.read_csv(io.BytesIO(stream.readall()))
     except Exception:
         existing = pd.DataFrame(columns=["id", "created_at", "filename", "text", "summary", "subject"])
-        
-
 
     # 2. 新しい行を追加
     new_row = {
@@ -177,10 +175,7 @@ def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.cs
 # UI ヘルパ
 # =====================
 def render_header():
-    st.markdown(
-        f"<h1 style='margin:0;'>{APP_TITLE}</h1>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(f"<h1 style='margin:0;'>{APP_TITLE}</h1>", unsafe_allow_html=True)
     st.divider()
 
 def matches_filters(rec: OcrRecord, q: str, dfrom, dto) -> bool:
@@ -196,18 +191,14 @@ def matches_filters(rec: OcrRecord, q: str, dfrom, dto) -> bool:
     return True
 
 def copy_to_clipboard_button(label, text, key):
-    b64 = base64.b64encode(text.encode()).decode()
+    b64 = base64.b64encode((text or "").encode()).decode()
     copy_js = f"navigator.clipboard.writeText(atob('{b64}'));"
-    st.markdown(
-        f"<button id='copy-btn-{key}' onclick=\"{copy_js}\">{label}</button>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(f"<button id='copy-btn-{key}' onclick=\"{copy_js}\">{label}</button>", unsafe_allow_html=True)
 
 def render_history(filters: Dict[str, Any]):
     st.markdown("### 履歴")
     records: List[OcrRecord] = st.session_state.records
     filtered = [r for r in records if matches_filters(r, filters["q"], filters["date_from"], filters["date_to"])]
-    # ★科目フィルタ適用
     if filters["subject_filter"] != "すべて":
         filtered = [r for r in filtered if r.subject == filters["subject_filter"]]
 
@@ -221,27 +212,23 @@ def render_history(filters: Dict[str, Any]):
     else:
         for rec in filtered:
             with st.container(border=True):
-                # ヘッダー部分（ファイル名と日付）
                 st.markdown(f"### {rec.filename}")
                 st.caption(f"作成日: {rec.created_at} | ID: {rec.id}")
 
-                # 要約（メイン表示）
                 st.markdown("**要約**")
                 st.write(rec.summary if rec.summary else "-")
-                copy_to_clipboard_button("コピー", rec.summary, f"summary-{rec.id}")
+                copy_to_clipboard_button("コピー", rec.summary or "", f"summary-{rec.id}")
 
-                # OCRテキスト（折りたたみ）
                 with st.expander("OCR全文を表示", expanded=False):
                     st.write(rec.text if rec.text else "-")
-                    copy_to_clipboard_button("コピー（OCR全文）", rec.text, f"text-{rec.id}")
-
+                    copy_to_clipboard_button("コピー（OCR全文）", rec.text or "", f"text-{rec.id}")
 
 def render_ocr_tab():
     st.markdown("### OCR")
 
-    # ★科目入力欄（自由入力＋リスト更新）
-    if "subjects" not in st.session_state:
-        st.session_state["subjects"] = []  # 初期リスト
+    # 科目リストの初期化（空配列でselectboxが落ちないようガード）
+    if "subjects" not in st.session_state or not st.session_state["subjects"]:
+        st.session_state["subjects"] = ["未分類"]
 
     new_subject = st.text_input("科目を入力（新しい科目も追加可能）")
     if new_subject and new_subject not in st.session_state["subjects"]:
@@ -262,12 +249,11 @@ def render_ocr_tab():
                 filename=uploaded.name,
                 text=text,
                 summary=summary,
-                subject=subject,   # ★ここに保存
+                subject=subject,
                 meta={"size": len(image_bytes)}
             )
             st.session_state.records.insert(0, rec)
             save_to_blob_csv(rec)
-
 
 def render_sidebar():
     with st.sidebar:
@@ -280,21 +266,18 @@ def render_sidebar():
         with col2:
             date_to = st.date_input("終了日", value=None)
 
-        # ★科目フィルタ
-        if "subjects" in st.session_state:
-            subject_filter = st.selectbox("科目フィルタ", ["すべて"] + st.session_state["subjects"])
-        else:
-            subject_filter = "すべて"
+        subject_filter = st.selectbox(
+            "科目フィルタ",
+            ["すべて"] + (st.session_state.get("subjects") or ["未分類"])
+        )
 
     return {
         "view_mode": view_mode,
         "q": q,
         "date_from": date_from,
         "date_to": date_to,
-        "subject_filter": subject_filter,   # ★追加
+        "subject_filter": subject_filter,
     }
-
-
 
 # =====================
 # 学習進捗の可視化
@@ -305,18 +288,16 @@ def render_progress_chart():
     if not records:
         st.info("まだデータがありません。OCRを実行すると進捗が表示されます。")
         return
-    
-    # ========= 日本語フォント設定 =========
+
+    # ========= 日本語フォント設定（確実版：各ラベル/タイトルに指定） =========
     import matplotlib.font_manager as fm
     font_path = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansJP-Regular.ttf")
     if not os.path.exists(font_path):
-     st.error(f"フォントが見つかりません: {font_path}")
+        st.warning(f"日本語フォントが見つかりませんでした: {font_path}（英字フォントで表示します）")
+        prop = None
     else:
-     prop = fm.FontProperties(fname=font_path)
-    plt.rcParams['font.family'] = prop.get_name()
-    prop = fm.FontProperties(fname=font_path)
-    plt.rcParams['font.family'] = prop.get_name()
-    # =====================================
+        prop = fm.FontProperties(fname=font_path)
+    # =====================================================================
 
     df = df_from_records(records)
     df["date"] = pd.to_datetime(df["created_at"]).dt.date
@@ -325,25 +306,60 @@ def render_progress_chart():
     daily_counts = df.groupby("date").size()
     daily_summary_len = df.groupby("date")["summary_len"].sum()
 
+    # --- グラフ1: 日別OCR件数 ---
     fig1, ax1 = plt.subplots()
-    daily_counts.plot(kind="bar", ax=ax1, title="日別OCR件数", rot=45)
-    st.pyplot(fig1)
+    daily_counts.plot(kind="bar", ax=ax1, rot=45)
+    if prop:
+        ax1.set_title("日別OCR件数", fontproperties=prop)
+        ax1.set_xlabel("日付", fontproperties=prop)
+        ax1.set_ylabel("件数", fontproperties=prop)
+    else:
+        ax1.set_title("日別OCR件数")
+        ax1.set_xlabel("日付")
+        ax1.set_ylabel("件数")
+    st.pyplot(fig1, use_container_width=True)
 
+    # --- グラフ2: 日別要約文字数 ---
     fig2, ax2 = plt.subplots()
-    daily_summary_len.plot(kind="bar", ax=ax2, title="日別要約文字数", rot=45)
-    st.pyplot(fig2)
+    daily_summary_len.plot(kind="bar", ax=ax2, rot=45)
+    if prop:
+        ax2.set_title("日別要約文字数", fontproperties=prop)
+        ax2.set_xlabel("日付", fontproperties=prop)
+        ax2.set_ylabel("文字数", fontproperties=prop)
+    else:
+        ax2.set_title("日別要約文字数")
+        ax2.set_xlabel("日付")
+        ax2.set_ylabel("文字数")
+    st.pyplot(fig2, use_container_width=True)
 
     if "subject" in df.columns:
+        # --- グラフ3: 科目別OCR件数 ---
         subject_counts = df.groupby("subject").size()
         fig3, ax3 = plt.subplots()
-        subject_counts.plot(kind="bar", ax=ax3, title="科目別OCR件数", rot=45)
-        st.pyplot(fig3)
+        subject_counts.plot(kind="bar", ax=ax3, rot=45)
+        if prop:
+            ax3.set_title("科目別OCR件数", fontproperties=prop)
+            ax3.set_xlabel("科目", fontproperties=prop)
+            ax3.set_ylabel("件数", fontproperties=prop)
+        else:
+            ax3.set_title("科目別OCR件数")
+            ax3.set_xlabel("科目")
+            ax3.set_ylabel("件数")
+        st.pyplot(fig3, use_container_width=True)
 
+        # --- グラフ4: 科目別要約文字数 ---
         subject_summary_len = df.groupby("subject")["summary_len"].sum()
         fig4, ax4 = plt.subplots()
-        subject_summary_len.plot(kind="bar", ax=ax4, title="科目別要約文字数", rot=45)
-        st.pyplot(fig4)
-
+        subject_summary_len.plot(kind="bar", ax=ax4, rot=45)
+        if prop:
+            ax4.set_title("科目別要約文字数", fontproperties=prop)
+            ax4.set_xlabel("科目", fontproperties=prop)
+            ax4.set_ylabel("文字数", fontproperties=prop)
+        else:
+            ax4.set_title("科目別要約文字数")
+            ax4.set_xlabel("科目")
+            ax4.set_ylabel("文字数")
+        st.pyplot(fig4, use_container_width=True)
 
 # =====================
 # メイン
