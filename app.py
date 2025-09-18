@@ -24,7 +24,7 @@ from azure.storage.blob import BlobServiceClient, ContentSettings
 # =====================
 # 設定 (Streamlit Secretsから取得)
 # =====================
-APP_TITLE = "手書きノートOCR＋要約による自動復習生成システム"
+APP_TITLE = "StudyRecord"
 
 AZURE_CV_ENDPOINT = st.secrets.get("AZURE_ENDPOINT", "")
 AZURE_CV_KEY = st.secrets.get("AZURE_KEY", "")
@@ -227,7 +227,7 @@ def render_history(filters: Dict[str, Any]):
                     copy_to_clipboard_button("コピー", rec.text, f"text-{rec.id}")
 
 def render_ocr_tab():
-    st.markdown("### OCR 実行")
+    st.markdown("### OCR")
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
     if uploaded is not None:
         st.image(uploaded, caption=uploaded.name, use_container_width=True)
