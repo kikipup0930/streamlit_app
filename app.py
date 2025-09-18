@@ -3,8 +3,8 @@
 # - OCR: Azure Computer Vision
 # - 要約: Azure OpenAI
 # - 保存: Azure Blob Storage 上の単一CSVに追記
-# - UI: 履歴カードにコピー/全文モーダル対応
-# - 新機能: 日別学習進捗をグラフで可視化
+# - UI: 要約は常に表示、OCR全文は折りたたみで展開
+# - 学習進捗をグラフで可視化
 # -------------------------------------------------
 
 import os
@@ -24,7 +24,7 @@ from azure.storage.blob import BlobServiceClient, ContentSettings
 # =====================
 # 設定 (Streamlit Secretsから取得)
 # =====================
-APP_TITLE = "Study Record"
+APP_TITLE = "手書きノートOCR＋要約による自動復習生成システム"
 
 AZURE_CV_ENDPOINT = st.secrets.get("AZURE_ENDPOINT", "")
 AZURE_CV_KEY = st.secrets.get("AZURE_KEY", "")
@@ -199,6 +199,7 @@ def copy_to_clipboard_button(label, text, key):
     )
 
 def render_history(filters: Dict[str, Any]):
+    st.markdown("### 履歴")
     records: List[OcrRecord] = st.session_state.records
     filtered = [r for r in records if matches_filters(r, filters["q"], filters["date_from"], filters["date_to"])]
 
@@ -214,31 +215,22 @@ def render_history(filters: Dict[str, Any]):
             with st.container(border=True):
                 st.markdown(f"**{rec.filename}**  ")
                 st.caption(f"ID: `{rec.id}` / 作成日: {rec.created_at}")
-                col1, col2 = st.columns([1,1])
-                with col1:
-                    st.markdown("**OCR テキスト**")
+
+                # 要約（常に表示）
+                st.markdown("**要約**")
+                st.write(rec.summary if rec.summary else "-")
+                copy_to_clipboard_button("コピー", rec.summary, f"summary-{rec.id}")
+
+                # OCRテキスト（折りたたみ表示）
+                with st.expander("OCR全文を表示", expanded=False):
                     st.write(rec.text if rec.text else "-")
                     copy_to_clipboard_button("コピー", rec.text, f"text-{rec.id}")
-                    if st.button("全文を表示", key=f"expand-text-{rec.id}"):
-                        st.session_state["_modal"] = ("OCR テキスト", rec.text)
-                with col2:
-                    st.markdown("**要約**")
-                    st.write(rec.summary if rec.summary else "-")
-                    copy_to_clipboard_button("コピー", rec.summary, f"summary-{rec.id}")
-                    if st.button("全文を表示", key=f"expand-summary-{rec.id}"):
-                        st.session_state["_modal"] = ("要約", rec.summary)
-
-    if st.session_state.get("_modal"):
-        title, content = st.session_state["_modal"]
-        st.text_area("内容", content, height=400)
-        if st.button("閉じる"):
-            st.session_state["_modal"] = None
 
 def render_ocr_tab():
+    st.markdown("### OCR 実行")
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
     if uploaded is not None:
         st.image(uploaded, caption=uploaded.name, use_container_width=True)
-
         if st.button("OCR を実行", use_container_width=True):
             image_bytes = uploaded.read()
             text = run_azure_ocr(image_bytes)
@@ -266,6 +258,7 @@ def render_sidebar():
             date_from = st.date_input("開始日", value=None)
         with col2:
             date_to = st.date_input("終了日", value=None)
+        st.caption("ヒント：空欄なら全期間が対象")
 
     return {"view_mode": view_mode, "q": q, "date_from": date_from, "date_to": date_to}
 
@@ -273,6 +266,7 @@ def render_sidebar():
 # 学習進捗の可視化
 # =====================
 def render_progress_chart():
+    st.markdown("### 学習進捗の見える化")
     records: List[OcrRecord] = st.session_state.records
     if not records:
         st.info("まだデータがありません。OCRを実行すると進捗が表示されます。")
@@ -302,7 +296,7 @@ def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="📝", layout="wide")
     render_header()
     filters = render_sidebar()
-    tab_ocr, tab_hist, tab_progress = st.tabs(["OCR", "履歴", "進捗"])
+    tab_ocr, tab_hist, tab_progress = st.tabs(["OCR 実行", "履歴", "進捗"])
     with tab_ocr:
         render_ocr_tab()
     with tab_hist:
