@@ -64,6 +64,7 @@ def df_from_records(records: List[OcrRecord]) -> pd.DataFrame:
         "filename": r.filename,
         "text": r.text,
         "summary": r.summary,
+        "subject": r.subject,
     } for r in records])
 
 # =====================
@@ -148,6 +149,7 @@ def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.cs
         existing = pd.read_csv(io.BytesIO(stream.readall()))
     except Exception:
         existing = pd.DataFrame(columns=["id", "created_at", "filename", "text", "summary", "subject"])
+        
 
 
     # 2. 新しい行を追加
@@ -250,7 +252,7 @@ def render_ocr_tab():
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
     if uploaded is not None:
         st.image(uploaded, caption=uploaded.name, use_container_width=True)
-        if st.button("OCR を実行", use_container_width=True):
+        if st.button("実行", use_container_width=True):
             image_bytes = uploaded.read()
             text = run_azure_ocr(image_bytes)
             summary = run_azure_summary(text)
@@ -318,7 +320,7 @@ def render_progress_chart():
     fig2, ax2 = plt.subplots()
     daily_summary_len.plot(kind="bar", ax=ax2, title="日別要約文字数", rot=45)
     st.pyplot(fig2)
-    
+
     if "subject" in df.columns:
         subject_counts = df.groupby("subject").size()
         fig3, ax3 = plt.subplots()
