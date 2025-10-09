@@ -306,78 +306,97 @@ def render_progress_chart():
     import matplotlib.font_manager as fm
     font_path = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansJP-Regular.ttf")
     prop = fm.FontProperties(fname=font_path) if os.path.exists(font_path) else None
-    # =====================================
+
+    def apply_jp_font(ax):
+        if not prop:
+            return
+        # タイトル・軸ラベル
+        t = ax.get_title()
+        if t:
+            ax.set_title(t, fontproperties=prop, fontsize=16)
+        xl = ax.get_xlabel()
+        if xl:
+            ax.set_xlabel(xl, fontproperties=prop, fontsize=12)
+        yl = ax.get_ylabel()
+        if yl:
+            ax.set_ylabel(yl, fontproperties=prop, fontsize=12)
+        # 目盛りラベル
+        for lab in ax.get_xticklabels() + ax.get_yticklabels():
+            lab.set_fontproperties(prop)
+            lab.set_fontsize(10)
 
     # ========= データ準備 =========
     df = df_from_records(records)
     df["date"] = pd.to_datetime(df["created_at"]).dt.date
     df["summary_len"] = df["summary"].apply(lambda x: len(x) if isinstance(x, str) else 0)
 
-    # ========= サマリー計算 =========
-    total_ocr = len(df)  # 総OCR件数
+    # ========= サマリー（上段） =========
+    total_ocr = len(df)
     last7 = df[df["date"] >= (dt.date.today() - dt.timedelta(days=7))]
     recent_ocr = len(last7)
 
-    # ========= サマリーカード表示 =========
-    col1, col2, col3 = st.columns(3)
-    col1.metric("総OCR件数", f"{total_ocr} 件")
-    col2.metric("直近7日間のOCR件数", f"{recent_ocr} 件")
+    c1, c2 = st.columns(2)
+    c1.metric("総OCR件数", f"{total_ocr} 件")
+    c2.metric("直近7日間のOCR件数", f"{recent_ocr} 件")
 
     st.divider()
 
     # ========= グラフ描画 =========
+    # 1段目：日別OCR件数（ワイド）
     daily_counts = df.groupby("date").size()
-    daily_summary_len = df.groupby("date")["summary_len"].sum()
-
-    # --- グラフ1: 日別OCR件数 ---
-    fig1, ax1 = plt.subplots()
+    fig1, ax1 = plt.subplots(figsize=(10, 3.8))
     daily_counts.plot(kind="bar", ax=ax1, rot=45, color="#2196F3")
-    if prop:
-        ax1.set_title("日別OCR件数", fontproperties=prop, fontsize=16)
-        ax1.set_xlabel("日付", fontproperties=prop, fontsize=12)
-        ax1.set_ylabel("件数", fontproperties=prop, fontsize=12)
-        for label in ax1.get_xticklabels() + ax1.get_yticklabels():
-            label.set_fontproperties(prop)
-            label.set_fontsize(10)
+    ax1.set_title("日別OCR件数")
+    ax1.set_xlabel("日付")
+    ax1.set_ylabel("件数")
     ax1.grid(axis="y", linestyle="--", alpha=0.7)
+    apply_jp_font(ax1)
+    fig1.tight_layout()
     st.pyplot(fig1, use_container_width=True)
+    plt.close(fig1)
 
-    if "subject" in df.columns:
-        subject_counts = df.groupby("subject").size()
-        subject_summary_len = df.groupby("subject")["summary_len"].sum()
+    # 2段目：科目別（棒＋円）を横並び
+    if "subject" in df.columns and not df["subject"].isna().all():
+        subject_counts = df.groupby("subject").size().sort_values(ascending=False)
 
-        # --- グラフ3: 科目別OCR件数 ---
-        fig3, ax3 = plt.subplots()
-        subject_counts.plot(
-            kind="bar", ax=ax3, rot=45,
-            color=["#FF9800", "#2196F3", "#4CAF50", "#9C27B0", "#E91E63"]
-        )
-        if prop:
-            ax3.set_title("科目別OCR件数", fontproperties=prop, fontsize=16)
-            ax3.set_xlabel("科目", fontproperties=prop, fontsize=12)
-            ax3.set_ylabel("件数", fontproperties=prop, fontsize=12)
-            for label in ax3.get_xticklabels() + ax3.get_yticklabels():
-                label.set_fontproperties(prop)
-                label.set_fontsize(10)
-        ax3.grid(axis="y", linestyle="--", alpha=0.7)
-        st.pyplot(fig3, use_container_width=True)
+        col_left, col_right = st.columns(2)
 
+        # 左：科目別OCR件数（棒）
+        with col_left:
+            fig2, ax2 = plt.subplots(figsize=(6, 4))
+            subject_counts.plot(
+                kind="bar", ax=ax2, rot=45,
+                color=["#FF9800", "#2196F3", "#4CAF50", "#9C27B0", "#E91E63"][: len(subject_counts)]
+            )
+            ax2.set_title("科目別OCR件数")
+            ax2.set_xlabel("科目")
+            ax2.set_ylabel("件数")
+            ax2.grid(axis="y", linestyle="--", alpha=0.7)
+            apply_jp_font(ax2)
+            fig2.tight_layout()
+            st.pyplot(fig2, use_container_width=True)
+            plt.close(fig2)
 
-        # --- 円グラフ1: 科目別OCR件数の割合 ---
-        fig5, ax5 = plt.subplots()
-        subject_counts.plot(
-            kind="pie", ax=ax5, autopct="%1.1f%%", startangle=90,
-            colors=["#FF9800", "#2196F3", "#4CAF50", "#9C27B0", "#E91E63"]
-        )
-        if prop:
-            ax5.set_ylabel("", fontproperties=prop)  # yラベルは消す
-            ax5.set_title("科目別OCR件数（割合）", fontproperties=prop, fontsize=16)
-            for t in ax5.texts:
-                t.set_fontproperties(prop)
-        else:
-            ax5.set_ylabel("")
-            ax5.set_title("科目別OCR件数（割合）")
-        st.pyplot(fig5, use_container_width=True)
+        # 右：科目別割合（円）
+        with col_right:
+            fig3, ax3 = plt.subplots(figsize=(6, 4))
+            subject_counts.plot(
+                kind="pie", ax=ax3, autopct="%1.1f%%", startangle=90,
+                colors=["#FF9800", "#2196F3", "#4CAF50", "#9C27B0", "#E91E63"][: len(subject_counts)]
+            )
+            ax3.set_title("科目別OCR件数（割合）")
+            ax3.set_ylabel("")  # yラベルは不要
+            # 円グラフのテキスト（科目名・割合）にも日本語フォントを適用
+            if prop:
+                for t in ax3.texts:
+                    t.set_fontproperties(prop)
+            apply_jp_font(ax3)  # タイトルも適用
+            fig3.tight_layout()
+            st.pyplot(fig3, use_container_width=True)
+            plt.close(fig3)
+    else:
+        st.info("科目情報が未設定のため、科目別グラフは表示できません。")
+
 
 
 
