@@ -82,8 +82,6 @@ def run_azure_ocr(image_bytes: bytes) -> str:
         "Content-Type": "application/octet-stream",
     }
     resp = requests.post(analyze_url, headers=headers, data=image_bytes, timeout=30)
-    st.error(f"OCR API response: {resp.status_code}")
-    st.error(resp.text[:300])
     resp.raise_for_status()
     op_location = resp.headers.get("Operation-Location")
     if not op_location:
