@@ -24,10 +24,11 @@ def inject_global_css():
         /* ノート紙：横罫線＋左マージン線 */
         background-color: #fcfcf7;
         background-image:
-          linear-gradient(#e0e0e0 1px, transparent 1px),      /* 横罫線 */
+          linear-gradient(#e0e0e0 1px, transparent 1px),   /* 横罫線 */
           linear-gradient(90deg, #ffb6b6 2px, transparent 2px); /* 左マージン線 */
-        background-size: 100% 32px, 120px 100%;  /* 横線間隔とマージン位置 */
-        background-position: 0 16px, 80px 0;     /* 少し下から開始＋左赤線 */
+        background-size: 100% 32px, 100% 100%;   /* 横線を繰り返し、赤線は1本 */
+        background-repeat: repeat, no-repeat;    /* 赤線を繰り返さない */
+        background-position: 0 16px, 80px 0;     /* 横線少し下＋左に赤線 */
     }
 
     /* --- サイドバー --- */
@@ -107,6 +108,7 @@ def inject_global_css():
     </style>
     """, unsafe_allow_html=True)
 
+
 def render_header(title="StudyRecord", subtitle="手書きノートOCR＋要約による自動復習生成"):
     st.markdown(f"""
         <div class="sr-header">
@@ -114,6 +116,7 @@ def render_header(title="StudyRecord", subtitle="手書きノートOCR＋要約�
             <p>{subtitle}</p>
         </div>
     """, unsafe_allow_html=True)
+
 
 def metric_card(label: str, value: str):
     st.markdown(
