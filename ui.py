@@ -1,127 +1,133 @@
-# ui.py
 import streamlit as st
-from contextlib import contextmanager
 
-# ==============================
-# グローバルCSS（教育アプリ風）
-# ==============================
+# ========================================
+# ノート風グローバルCSS注入
+# ========================================
 def inject_global_css():
     st.markdown("""
     <style>
-      /* ベース */
-      html, body, [class*="block-container"]{
-        font-family: "Noto Sans JP", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        background: #F6F7F9;
-      }
-      /* 見出しの行間を少し詰める */
-      h1, h2, h3 { line-height: 1.2; }
+    /* 全体背景：ノート風（淡い紙＋罫線） */
+    body {
+        background-color: #fafaf8;
+        background-image: linear-gradient(#e5e5e5 1px, transparent 1px);
+        background-size: 100% 28px;
+        font-family: "Noto Sans JP", sans-serif;
+    }
 
-      /* ヘッダー */
-      .sr-header{
-        background: linear-gradient(90deg,#3B82F6,#60A5FA);
-        color:#fff;
-        padding:18px 24px;
-        border-radius:14px;
-        box-shadow:0 6px 18px rgba(59,130,246,.25);
-        margin-bottom:18px;
-      }
-      .sr-header h1{ margin:0; font-size:1.7rem; font-weight:800; }
-      .sr-header p{ margin:.25rem 0 0; opacity:.95; }
+    /* タイトルヘッダー */
+    .sr-header {
+        background: linear-gradient(135deg, #fefefe, #f5f5f0);
+        padding: 1.2rem 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        border-left: 6px solid #4CAF50;
+        margin-bottom: 1rem;
+    }
 
-      /* カード共通 */
-      .sr-card{
-        background:#fff;
-        border:1px solid #e5e7eb;
-        border-radius:16px;
-        padding:16px 18px;
-        box-shadow:0 6px 18px rgba(17,24,39,.06);
-        margin-bottom:14px;
-      }
-      .sr-card h3{ margin:.2rem 0 0.6rem; font-weight:700; }
+    .sr-header h1 {
+        margin: 0;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #333;
+    }
 
-      /* メトリック（サマリー） */
-      .sr-metric{
-        text-align:center;
-        border-radius:16px;
-        padding:14px 16px;
-        background:linear-gradient(180deg,#fff,#f9fafb);
-        border:1px solid #e5e7eb;
-        box-shadow:0 8px 22px rgba(17,24,39,.06);
-      }
-      .sr-metric .t{ color:#3B82F6; font-weight:700; font-size:.9rem; }
-      .sr-metric .v{ color:#0f172a; font-weight:800; font-size:1.4rem; margin-top:2px; }
+    .sr-header p {
+        margin: 0.3rem 0 0;
+        color: #666;
+        font-size: 0.95rem;
+    }
 
-      /* ボタン（全体） */
-      .stButton>button{
-        background:#2563EB!important;
-        border:1px solid #1e40af!important;
-        color:#fff!important;
-        font-weight:700!important;
-        border-radius:12px!important;
-        padding:.55rem 1rem!important;
-        box-shadow:0 4px 12px rgba(37,99,235,.25)!important;
-      }
-      .stButton>button:hover{ filter:brightness(1.03); }
+    /* ノートカード風コンテナ */
+    .sr-card {
+        background-color: #fffdf9;
+        border: 1px solid #ddd6c5;
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        margin-bottom: 1rem;
+        transition: transform 0.1s ease-in-out, box-shadow 0.2s;
+    }
 
-      /* アップローダ枠すっきり */
-      .uploadedFile, .st-emotion-cache-1c7y2kd, .stFileUploader{
-        border-radius:12px!important;
-      }
+    .sr-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+    }
 
-      /* タブの下線を細く */
-      .stTabs [data-baseweb="tab-list"]{
-        gap: 6px;
-        border-bottom: 1px solid #e5e7eb;
-      }
-      .stTabs [data-baseweb="tab"]{
-        padding-top: 10px; padding-bottom: 10px;
-      }
+    /* メトリックカード */
+    .sr-metric {
+        background-color: #ffffffcc;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
 
-      /* エクスパンダのタイトル行を強調 */
-      details>summary{
-        font-weight:700;
-      }
+    .sr-metric h3 {
+        margin: 0;
+        color: #333;
+        font-size: 1.1rem;
+    }
 
-      /* コピー用ボタン */
-      .sr-copy{
-        background:#EEF2FF; color:#3730A3; border:1px solid #c7d2fe;
-        padding:.3rem .6rem; border-radius:10px; font-weight:700;
-      }
+    .sr-metric p {
+        margin: 0.4rem 0 0;
+        font-size: 1.3rem;
+        font-weight: bold;
+        color: #2E7D32;
+    }
+
+    /* コピー用ボタン */
+    .sr-copy {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 4px 8px;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+
+    .sr-copy:hover {
+        background-color: #43A047;
+    }
+
+    /* Streamlitのデフォルトコンテナ調整 */
+    [data-testid="stAppViewContainer"] {
+        background: transparent !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# ==============================
+# ========================================
 # ヘッダー
-# ==============================
+# ========================================
 def render_header(title: str, subtitle: str = ""):
-    st.markdown(f"""
-    <div class="sr-header">
-      <h1>📝 {title}</h1>
-      <p>{subtitle}</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="sr-header">
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-# ==============================
-# カード（コンテナ）
-# ==============================
-@contextmanager
-def card(title: str | None = None, icon: str = ""):
-    c = st.container()
-    with c:
-        st.markdown('<div class="sr-card">', unsafe_allow_html=True)
-        if title:
-            t = f"{icon} {title}" if icon else title
-            st.markdown(f"<h3>{t}</h3>", unsafe_allow_html=True)
-        yield
-        st.markdown("</div>", unsafe_allow_html=True)
+# ========================================
+# カード表示（汎用）
+# ========================================
+def card(title: str, icon: str = "📄"):
+    return st.container()
 
-# ==============================
+# ========================================
 # メトリックカード
-# ==============================
-def metric_card(title: str, value: str):
-    st.markdown(f"""
-    <div class="sr-metric">
-      <div class="t">{title}</div>
-      <div class="v">{value}</div>
-    </div>
-    """, unsafe_allow_html=True)
+# ========================================
+def metric_card(label: str, value: str):
+    st.markdown(
+        f"""
+        <div class="sr-metric">
+            <h3>{label}</h3>
+            <p>{value}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
