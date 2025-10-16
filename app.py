@@ -406,9 +406,9 @@ def render_progress_chart():
 def main():
     if "records" not in st.session_state:
         st.session_state.records: List[OcrRecord] = []
-    st.set_page_config(page_title=APP_TITLE, page_icon="📝", layout="wide")
+    st.set_page_config(page_title=APP_TITLE, layout="wide")
     inject_global_css() 
-    render_header(APP_TITLE, "手書きノートのOCRと要約で、学習ログをスマートに。")
+    render_header(APP_TITLE)
     filters = render_sidebar()
     tab_ocr, tab_hist, tab_progress = st.tabs(["OCR", "履歴", "進捗"])
     with tab_ocr:
