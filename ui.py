@@ -1,50 +1,42 @@
 import streamlit as st
 
-# ==========================================
-# グローバルCSSとUIコンポーネント
-# ==========================================
-
 def inject_global_css():
     st.markdown("""
     <style>
-    /* 全体リセット */
+    /* --- ベースを透明に --- */
     html, body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        overflow-x: hidden;
+        background: transparent !important;
     }
     [data-testid="stAppViewContainer"] {
+        background: transparent !important;
         position: relative;
         z-index: 0;
     }
 
-    /* ------------------------------
-       📘 背景ノート罫線（全面固定）
-    ------------------------------ */
-    #note-background {
+    /* --- ノート紙 背景を before で固定描画 --- */
+    [data-testid="stAppViewContainer"]::before {
+        content: "";
         position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
+        inset: 0;
         z-index: -1;
+        pointer-events: none;
+
+        /* ノート紙：横罫線＋左マージン線 */
         background-color: #fcfcf7;
         background-image:
-            linear-gradient(#d4d4d4 1px, transparent 1px),      /* 横罫線 */
-            linear-gradient(90deg, #ff8e8e 1px, transparent 1px); /* 赤マージン線 */
-        background-size: 100% 28px, 120px 100%;
-        background-position: 0 0, 0 0;
+          linear-gradient(#e0e0e0 1px, transparent 1px),      /* 横罫線 */
+          linear-gradient(90deg, #ffb6b6 2px, transparent 2px); /* 左マージン線 */
+        background-size: 100% 32px, 120px 100%;  /* 横線間隔とマージン位置 */
+        background-position: 0 16px, 80px 0;     /* 少し下から開始＋左赤線 */
     }
 
-    /* ------------------------------
-       📂 サイドバー
-    ------------------------------ */
+    /* --- サイドバー --- */
     [data-testid="stSidebar"] {
         background-color: #faf9f6 !important;
         border-right: 1px solid #ddd !important;
     }
 
-    /* ------------------------------
-       🪶 ヘッダー（タイトルカード風）
-    ------------------------------ */
+    /* --- ヘッダー（表紙風） --- */
     .sr-header {
         background: linear-gradient(90deg, #fdfcf8, #f6f5ef);
         padding: 1.3rem 1.6rem;
@@ -66,9 +58,7 @@ def inject_global_css():
         font-size: 1rem;
     }
 
-    /* ------------------------------
-       🗒️ ノートカード（履歴など）
-    ------------------------------ */
+    /* --- ノートカード --- */
     .sr-card {
         background-color: #fffefb;
         border: 1px solid #e8e6dc;
@@ -76,18 +66,16 @@ def inject_global_css():
         padding: 1.1rem 1.4rem;
         box-shadow: 0 4px 7px rgba(0,0,0,0.08);
         margin-bottom: 1rem;
+        transition: transform .15s ease, box-shadow .3s;
         background-image: linear-gradient(#f3f3f1 1px, transparent 1px);
         background-size: 100% 30px;
-        transition: transform .15s ease, box-shadow .3s;
     }
     .sr-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 12px rgba(0,0,0,0.1);
     }
 
-    /* ------------------------------
-       📊 メトリックカード（進捗）
-    ------------------------------ */
+    /* --- 進捗メトリックカード --- */
     .sr-metric {
         background-color: #fff;
         border: 1px solid #ddd;
@@ -96,22 +84,18 @@ def inject_global_css():
         text-align: center;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    .sr-metric h3 {
-        margin: 0;
-        color: #444;
-        font-size: 1.05rem;
-        font-weight: 600;
-    }
-    .sr-metric p {
-        margin: .45rem 0 0;
-        font-size: 1.35rem;
-        font-weight: 800;
-        color: #2E7D32;
+    .sr-metric h3 { margin: 0; color: #444; font-size: 1.05rem; font-weight: 600; }
+    .sr-metric p  { margin: .45rem 0 0; font-size: 1.35rem; font-weight: 800; color: #2E7D32; }
+
+    /* --- ボタンや入力の角丸 --- */
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div,
+    .stFileUploader,
+    .stButton > button {
+        border-radius: 8px !important;
     }
 
-    /* ------------------------------
-       🎛️ タブ選択のスタイル
-    ------------------------------ */
+    /* --- タブの選択スタイル --- */
     div[data-baseweb="tab-list"] button {
         font-weight: 600;
         padding: 6px 14px;
@@ -120,42 +104,9 @@ def inject_global_css():
         border-bottom: 3px solid #4CAF50;
         color: #2E7D32;
     }
-
-    /* ------------------------------
-       💬 入力・ボタン角丸調整
-    ------------------------------ */
-    .stTextInput > div > div > input,
-    .stSelectbox > div > div,
-    .stFileUploader,
-    .stButton > button {
-        border-radius: 8px !important;
-    }
-
-    /* ------------------------------
-       📋 コピー用ボタンの装飾
-    ------------------------------ */
-    button[id^="copy-btn-"] {
-        background: #f5f5f5;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        padding: 0.4rem 0.8rem;
-        cursor: pointer;
-        transition: 0.2s;
-    }
-    button[id^="copy-btn-"]:hover {
-        background: #e0e0e0;
-    }
-
     </style>
-
-    <!-- ✅ 背景ノートをHTMLで直接描画 -->
-    <div id="note-background"></div>
     """, unsafe_allow_html=True)
 
-
-# ==========================================
-# ヘッダー
-# ==========================================
 def render_header(title="StudyRecord", subtitle="手書きノートOCR＋要約による自動復習生成"):
     st.markdown(f"""
         <div class="sr-header">
@@ -164,14 +115,13 @@ def render_header(title="StudyRecord", subtitle="手書きノートOCR＋要約�
         </div>
     """, unsafe_allow_html=True)
 
-
-# ==========================================
-# メトリックカード（進捗用）
-# ==========================================
 def metric_card(label: str, value: str):
-    st.markdown(f"""
+    st.markdown(
+        f"""
         <div class="sr-metric">
             <h3>{label}</h3>
             <p>{value}</p>
         </div>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
