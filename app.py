@@ -176,9 +176,6 @@ def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.cs
 # =====================
 # UI ヘルパ
 # =====================
-def render_header():
-    st.markdown(f"<h1 style='margin:0;'>{APP_TITLE}</h1>", unsafe_allow_html=True)
-    st.divider()
 
 def matches_filters(rec: OcrRecord, q: str, period: str, subject_filter: str) -> bool:
     if q:
@@ -411,7 +408,7 @@ def main():
         st.session_state.records: List[OcrRecord] = []
     st.set_page_config(page_title=APP_TITLE, page_icon="📝", layout="wide")
     inject_global_css() 
-    render_header()
+    render_header(APP_TITLE, "手書きノートのOCRと要約で、学習ログをスマートに。")
     filters = render_sidebar()
     tab_ocr, tab_hist, tab_progress = st.tabs(["OCR", "履歴", "進捗"])
     with tab_ocr:
