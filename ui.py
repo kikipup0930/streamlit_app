@@ -1,33 +1,50 @@
 import streamlit as st
 
-# ========================================
-# ノート風グローバルCSS注入（青罫線＋赤マージン線）
-# ========================================
+# ==========================================
+# グローバルCSSとUIコンポーネント
+# ==========================================
+
 def inject_global_css():
     st.markdown("""
     <style>
-    /* 背景：ノート紙（横青罫線＋左の赤マージン線） */
-    body {
+    /* 全体リセット */
+    html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow-x: hidden;
+    }
+    [data-testid="stAppViewContainer"] {
+        position: relative;
+        z-index: 0;
+    }
+
+    /* ------------------------------
+       📘 背景ノート罫線（全面固定）
+    ------------------------------ */
+    #note-background {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: -1;
         background-color: #fcfcf7;
         background-image:
-            linear-gradient(#e6e6e6 1px, transparent 1px),     /* 横罫線 */
-            linear-gradient(90deg, #ffb6b6 1px, transparent 1px); /* 左マージン */
+            linear-gradient(#d4d4d4 1px, transparent 1px),      /* 横罫線 */
+            linear-gradient(90deg, #ff8e8e 1px, transparent 1px); /* 赤マージン線 */
         background-size: 100% 28px, 120px 100%;
-        font-family: "Noto Sans JP", sans-serif;
+        background-position: 0 0, 0 0;
     }
 
-    /* Streamlitアプリ領域の背景は透過 */
-    [data-testid="stAppViewContainer"] {
-        background: transparent !important;
-    }
-
-    /* サイドバー：ほんのり紙色＋境界線 */
+    /* ------------------------------
+       📂 サイドバー
+    ------------------------------ */
     [data-testid="stSidebar"] {
         background-color: #faf9f6 !important;
         border-right: 1px solid #ddd !important;
     }
 
-    /* ヘッダー（表紙風） */
+    /* ------------------------------
+       🪶 ヘッダー（タイトルカード風）
+    ------------------------------ */
     .sr-header {
         background: linear-gradient(90deg, #fdfcf8, #f6f5ef);
         padding: 1.3rem 1.6rem;
@@ -49,7 +66,9 @@ def inject_global_css():
         font-size: 1rem;
     }
 
-    /* ノートカード（白紙＋うっすら罫線＋影） */
+    /* ------------------------------
+       🗒️ ノートカード（履歴など）
+    ------------------------------ */
     .sr-card {
         background-color: #fffefb;
         border: 1px solid #e8e6dc;
@@ -57,16 +76,18 @@ def inject_global_css():
         padding: 1.1rem 1.4rem;
         box-shadow: 0 4px 7px rgba(0,0,0,0.08);
         margin-bottom: 1rem;
-        transition: transform .15s ease, box-shadow .3s;
         background-image: linear-gradient(#f3f3f1 1px, transparent 1px);
         background-size: 100% 30px;
+        transition: transform .15s ease, box-shadow .3s;
     }
     .sr-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 12px rgba(0,0,0,0.1);
     }
 
-    /* 進捗メトリックカード */
+    /* ------------------------------
+       📊 メトリックカード（進捗）
+    ------------------------------ */
     .sr-metric {
         background-color: #fff;
         border: 1px solid #ddd;
@@ -88,27 +109,9 @@ def inject_global_css():
         color: #2E7D32;
     }
 
-    /* コピー用ボタン（履歴カード内） */
-    .sr-copy {
-        background-color: #66BB6A;
-        color: #fff;
-        border: none;
-        border-radius: 6px;
-        padding: 6px 10px;
-        cursor: pointer;
-        font-size: .85rem;
-    }
-    .sr-copy:hover { background-color: #57A05D; }
-
-    /* 入力系コンポーネントの角を少し丸く */
-    .stTextInput > div > div > input,
-    .stSelectbox > div > div,
-    .stFileUploader,
-    .stButton > button {
-        border-radius: 8px !important;
-    }
-
-    /* タブ：選択時は緑のボトムライン */
+    /* ------------------------------
+       🎛️ タブ選択のスタイル
+    ------------------------------ */
     div[data-baseweb="tab-list"] button {
         font-weight: 600;
         padding: 6px 14px;
@@ -117,40 +120,58 @@ def inject_global_css():
         border-bottom: 3px solid #4CAF50;
         color: #2E7D32;
     }
+
+    /* ------------------------------
+       💬 入力・ボタン角丸調整
+    ------------------------------ */
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div,
+    .stFileUploader,
+    .stButton > button {
+        border-radius: 8px !important;
+    }
+
+    /* ------------------------------
+       📋 コピー用ボタンの装飾
+    ------------------------------ */
+    button[id^="copy-btn-"] {
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 0.4rem 0.8rem;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    button[id^="copy-btn-"]:hover {
+        background: #e0e0e0;
+    }
+
     </style>
+
+    <!-- ✅ 背景ノートをHTMLで直接描画 -->
+    <div id="note-background"></div>
     """, unsafe_allow_html=True)
 
-# ========================================
-# ヘッダー（タイトルとサブタイトル）
-# ========================================
-def render_header(title: str = "StudyRecord",
-                  subtitle: str = "手書きノートOCR＋要約による自動復習生成"):
-    st.markdown(
-        f"""
+
+# ==========================================
+# ヘッダー
+# ==========================================
+def render_header(title="StudyRecord", subtitle="手書きノートOCR＋要約による自動復習生成"):
+    st.markdown(f"""
         <div class="sr-header">
             <h1>{title}</h1>
             <p>{subtitle}</p>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    """, unsafe_allow_html=True)
 
-# ========================================
-# ノートカード風のラッパ（必要に応じて使う）
-# ========================================
-def note_card(content_html: str):
-    st.markdown(f"<div class='sr-card'>{content_html}</div>", unsafe_allow_html=True)
 
-# ========================================
-# メトリックカード（進捗のサマリー用）
-# ========================================
+# ==========================================
+# メトリックカード（進捗用）
+# ==========================================
 def metric_card(label: str, value: str):
-    st.markdown(
-        f"""
+    st.markdown(f"""
         <div class="sr-metric">
             <h3>{label}</h3>
             <p>{value}</p>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    """, unsafe_allow_html=True)
