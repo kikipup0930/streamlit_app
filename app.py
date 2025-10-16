@@ -20,6 +20,8 @@ import matplotlib.pyplot as plt
 from dataclasses import dataclass
 from typing import List, Dict, Any
 from azure.storage.blob import BlobServiceClient, ContentSettings
+from ui import inject_global_css, render_header, metric_card
+
 
 # =====================
 # 設定 (Streamlit Secretsから取得)
@@ -336,8 +338,8 @@ def render_progress_chart():
     recent_ocr = len(last7)
 
     c1, c2 = st.columns(2)
-    c1.metric("総OCR件数", f"{total_ocr} 件")
-    c2.metric("直近7日間のOCR件数", f"{recent_ocr} 件")
+    with c1: metric_card("総OCR件数", f"{total_ocr} 件")
+    with c2: metric_card("直近7日間のOCR件数", f"{recent_ocr} 件")
 
     st.divider()
 
@@ -408,6 +410,7 @@ def main():
     if "records" not in st.session_state:
         st.session_state.records: List[OcrRecord] = []
     st.set_page_config(page_title=APP_TITLE, page_icon="📝", layout="wide")
+    inject_global_css() 
     render_header()
     filters = render_sidebar()
     tab_ocr, tab_hist, tab_progress = st.tabs(["OCR", "履歴", "進捗"])
