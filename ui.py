@@ -6,66 +6,69 @@ import streamlit as st
 def inject_global_css():
     st.markdown("""
     <style>
-    /* 全体背景：ノート風（淡い紙＋罫線） */
+    /* 背景：少しベージュがかったノート紙＋罫線 */
     body {
-        background-color: #fafaf8;
-        background-image: linear-gradient(#e5e5e5 1px, transparent 1px);
-        background-size: 100% 28px;
+        background-color: #fdfcf8;
+        background-image: linear-gradient(#e7e7e7 1px, transparent 1px);
+        background-size: 100% 26px;
         font-family: "Noto Sans JP", sans-serif;
     }
 
-    /* タイトルヘッダー */
+    /* ヘッダー：柔らかいグラデーション＋ノート感 */
     .sr-header {
-        background: linear-gradient(135deg, #fefefe, #f5f5f0);
-        padding: 1.2rem 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-        border-left: 6px solid #4CAF50;
-        margin-bottom: 1rem;
+        background: linear-gradient(90deg, #fcfcfa, #f3f2eb);
+        padding: 1.3rem 1.6rem;
+        border-radius: 14px;
+        box-shadow: 0 3px 7px rgba(0,0,0,0.08);
+        border-left: 6px solid #81C784;
+        margin-bottom: 1.2rem;
     }
 
     .sr-header h1 {
         margin: 0;
-        font-size: 1.8rem;
+        font-size: 1.9rem;
         font-weight: 700;
-        color: #333;
+        color: #2e2e2e;
+        letter-spacing: 0.02em;
     }
 
     .sr-header p {
-        margin: 0.3rem 0 0;
+        margin: 0.4rem 0 0;
         color: #666;
-        font-size: 0.95rem;
+        font-size: 1rem;
     }
 
-    /* ノートカード風コンテナ */
+    /* ノートカード風コンテナ（白紙＋影＋罫線） */
     .sr-card {
-        background-color: #fffdf9;
-        border: 1px solid #ddd6c5;
+        background-color: #fffefb;
+        border: 1px solid #e4e0d4;
         border-radius: 12px;
         padding: 1rem 1.2rem;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        box-shadow: 0 3px 6px rgba(0,0,0,0.07);
         margin-bottom: 1rem;
-        transition: transform 0.1s ease-in-out, box-shadow 0.2s;
+        transition: transform 0.15s ease-in-out, box-shadow 0.3s;
+        background-image: linear-gradient(#f1f1ee 1px, transparent 1px);
+        background-size: 100% 32px;
     }
 
     .sr-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 9px rgba(0,0,0,0.12);
     }
 
     /* メトリックカード */
     .sr-metric {
-        background-color: #ffffffcc;
+        background-color: #fff;
         border: 1px solid #ddd;
         border-radius: 10px;
         padding: 1rem;
         text-align: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
     .sr-metric h3 {
         margin: 0;
-        color: #333;
+        color: #444;
         font-size: 1.1rem;
     }
 
@@ -78,22 +81,46 @@ def inject_global_css():
 
     /* コピー用ボタン */
     .sr-copy {
-        background-color: #4CAF50;
+        background-color: #66BB6A;
         color: white;
         border: none;
         border-radius: 6px;
-        padding: 4px 8px;
+        padding: 5px 9px;
         cursor: pointer;
         font-size: 0.85rem;
     }
 
     .sr-copy:hover {
-        background-color: #43A047;
+        background-color: #57A05D;
     }
 
-    /* Streamlitのデフォルトコンテナ調整 */
+    /* Streamlit背景透過 */
     [data-testid="stAppViewContainer"] {
         background: transparent !important;
+    }
+
+    /* サイドバー */
+    [data-testid="stSidebar"] {
+        background-color: #fafaf9 !important;
+        border-right: 1px solid #ddd !important;
+    }
+
+    /* Streamlit標準要素の角を少し丸める */
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div,
+    .stFileUploader,
+    .stButton > button {
+        border-radius: 8px !important;
+    }
+
+    /* タブのデザインを柔らかく */
+    div[data-baseweb="tab-list"] button {
+        font-weight: 600;
+        padding: 6px 14px;
+    }
+    div[data-baseweb="tab-list"] button[data-selected="true"] {
+        border-bottom: 3px solid #4CAF50;
+        color: #2E7D32;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -101,7 +128,7 @@ def inject_global_css():
 # ========================================
 # ヘッダー
 # ========================================
-def render_header(title: str, subtitle: str = ""):
+def render_header(title: str = "StudyRecord", subtitle: str = "手書きノートOCR＋要約による自動復習生成"):
     st.markdown(
         f"""
         <div class="sr-header">
@@ -113,13 +140,13 @@ def render_header(title: str, subtitle: str = ""):
     )
 
 # ========================================
-# カード表示（汎用）
+# ノートカード風コンテナ（任意の中身で使う）
 # ========================================
-def card(title: str, icon: str = "📄"):
-    return st.container()
+def note_card(content_html: str):
+    st.markdown(f"<div class='sr-card'>{content_html}</div>", unsafe_allow_html=True)
 
 # ========================================
-# メトリックカード
+# メトリックカード（進捗画面で使用）
 # ========================================
 def metric_card(label: str, value: str):
     st.markdown(
