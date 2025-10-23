@@ -211,12 +211,8 @@ def render_history(filters: Dict[str, Any]):
     st.markdown("### 履歴")
     records: List[OcrRecord] = st.session_state.records
     filtered = [r for r in records if matches_filters(
-        r,
-        filters["q"],
-        filters["period"],           # ← ここを period に変更
-        filters["subject_filter"]
+        r, filters["q"], filters["period"], filters["subject_filter"]
     )]
-
 
     if not filtered:
         st.info("条件に合致する履歴はありません。")
@@ -225,19 +221,18 @@ def render_history(filters: Dict[str, Any]):
     if filters["view_mode"] == "テーブル":
         df = df_from_records(filtered)
         st.dataframe(df, use_container_width=True)
-    else:
-        for rec in filtered:
-            with st.container(border=True):
-                st.markdown(f"### {rec.filename}")
-                st.caption(f"作成日: {rec.created_at} | ID: {rec.id}")
+        return
 
-                st.markdown("**要約**")
-                st.write(rec.summary if rec.summary else "-")
-                copy_to_clipboard_button("コピー", rec.summary or "", f"summary-{rec.id}")
+    # --- カード描画（付箋風固定） ---
+    for rec in filtered:
+        meta = f"作成日: {rec.created_at} ｜ ID: {rec.id}"
+        render_history_card(
+            title=rec.filename,
+            meta=meta,
+            summary=rec.summary,
+            fulltext=rec.text,
+        )
 
-                with st.expander("OCR全文を表示", expanded=False):
-                    st.write(rec.text if rec.text else "-")
-                    copy_to_clipboard_button("コピー（OCR全文）", rec.text or "", f"text-{rec.id}")
 
 def render_ocr_tab():
     st.markdown("### OCR")

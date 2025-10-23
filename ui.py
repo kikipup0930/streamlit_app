@@ -1,129 +1,114 @@
 import streamlit as st
 
 def inject_global_css():
-    st.markdown("""
-    <style>
-    /* --- ベースを透明に --- */
-    html, body {
-        background: transparent !important;
-    }
-    [data-testid="stAppViewContainer"] {
-        background: transparent !important;
-        position: relative;
-        z-index: 0;
-    }
+    st.markdown(
+        """
+        <style>
+        /* --- 共通 --- */
+        .sr-card { 
+          position: relative; 
+          margin: 12px 0 24px; 
+          padding: 18px 20px; 
+        }
+        .sr-title { 
+          margin: 0 0 6px 0; 
+          font-weight: 700; 
+          font-size: 1.25rem; 
+          letter-spacing: .3px;
+        }
+        .sr-meta  { 
+          color: #667085; 
+          font-size: .85rem; 
+          margin-bottom: 12px; 
+        }
+        .sr-sec   { margin-top: 10px; }
+        .sr-sec h4 { 
+          margin: 0 0 6px 0; 
+          font-size: .95rem; 
+          font-weight: 700; 
+        }
+        .sr-sec .box { 
+          background:#ffffffcc; 
+          border-radius: 8px; 
+          padding: 10px 12px; 
+        }
 
-    /* --- ノート紙 背景を before で固定描画 --- */
-    [data-testid="stAppViewContainer"]::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        z-index: -1;
-        pointer-events: none;
+        /* =========================
+           付箋風 (sticky-note)
+           ========================= */
+        .sticky-note {
+          background: #fff4a8;
+          border-radius: 10px;
+          box-shadow: 0 10px 18px rgba(0,0,0,.10), 0 2px 5px rgba(0,0,0,.06);
+          transform: rotate(-0.6deg);
+        }
 
-        /* ノート紙：横罫線＋左マージン線 */
-        background-color: #fcfcf7;
-        background-image:
-          linear-gradient(#e0e0e0 1px, transparent 1px),   /* 横罫線 */
-          linear-gradient(90deg, #ffb6b6 2px, transparent 2px); /* 左マージン線 */
-        background-size: 100% 32px, 100% 100%;   /* 横線を繰り返し、赤線は1本 */
-        background-repeat: repeat, no-repeat;    /* 赤線を繰り返さない */
-        background-position: 0 16px, 80px 0;     /* 横線少し下＋左に赤線 */
-    }
+        /* マスキングテープ */
+        .sticky-note:before{
+          content:"";
+          position:absolute;
+          top:-16px; left: 50%;
+          transform: translateX(-50%) rotate(-2deg);
+          width: 120px; height: 26px;
+          background: linear-gradient(#efe6bf,#e6dbb2);
+          box-shadow: 0 2px 6px rgba(0,0,0,.1);
+          border-radius: 4px;
+          opacity:.95;
+        }
 
-    /* --- サイドバー --- */
-    [data-testid="stSidebar"] {
-        background-color: #faf9f6 !important;
-        border-right: 1px solid #ddd !important;
-    }
+        /* コピー用ボタンの見た目を軽く */
+        .sr-copy-btn {
+          display:inline-block; border:1px solid #d0d5dd; background:#fff;
+          border-radius:8px; padding:6px 10px; font-size:.9rem; cursor:pointer;
+        }
+        .sr-copy-btn:hover { background:#f2f4f7; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    /* --- ヘッダー（表紙風） --- */
-    .sr-header {
-        background: linear-gradient(90deg, #fdfcf8, #f6f5ef);
-        padding: 1.3rem 1.6rem;
-        border-radius: 14px;
-        box-shadow: 0 3px 7px rgba(0,0,0,0.08);
-        border-left: 6px solid #4CAF50;
-        margin-bottom: 1.2rem;
-    }
-    .sr-header h1 {
-        margin: 0;
-        font-size: 2rem;
-        font-weight: 700;
-        color: #2d2d2d;
-        letter-spacing: .02em;
-    }
-    .sr-header p {
-        margin: .35rem 0 0;
-        color: #666;
-        font-size: 1rem;
-    }
-
-    /* --- ノートカード --- */
-    .sr-card {
-        background-color: #fffefb;
-        border: 1px solid #e8e6dc;
-        border-radius: 12px;
-        padding: 1.1rem 1.4rem;
-        box-shadow: 0 4px 7px rgba(0,0,0,0.08);
-        margin-bottom: 1rem;
-        transition: transform .15s ease, box-shadow .3s;
-        background-image: linear-gradient(#f3f3f1 1px, transparent 1px);
-        background-size: 100% 30px;
-    }
-    .sr-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.1);
-    }
-
-    /* --- 進捗メトリックカード --- */
-    .sr-metric {
-        background-color: #fff;
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    .sr-metric h3 { margin: 0; color: #444; font-size: 1.05rem; font-weight: 600; }
-    .sr-metric p  { margin: .45rem 0 0; font-size: 1.35rem; font-weight: 800; color: #2E7D32; }
-
-    /* --- ボタンや入力の角丸 --- */
-    .stTextInput > div > div > input,
-    .stSelectbox > div > div,
-    .stFileUploader,
-    .stButton > button {
-        border-radius: 8px !important;
-    }
-
-    /* --- タブの選択スタイル --- */
-    div[data-baseweb="tab-list"] button {
-        font-weight: 600;
-        padding: 6px 14px;
-    }
-    div[data-baseweb="tab-list"] button[data-selected="true"] {
-        border-bottom: 3px solid #4CAF50;
-        color: #2E7D32;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def render_header(title="StudyRecord", subtitle="手書きノートOCR＋要約による自動復習生成"):
-    st.markdown(f"""
-        <div class="sr-header">
-            <h1>{title}</h1>
-            <p>{subtitle}</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-
-def metric_card(label: str, value: str):
+def render_header(title: str, subtitle: str = "手書きノートOCR＋要約による自動復習生成"):
     st.markdown(
         f"""
-        <div class="sr-metric">
-            <h3>{label}</h3>
-            <p>{value}</p>
+        <div style="padding:22px 22px; border-radius:18px; background:linear-gradient(180deg,#f9f8f2,#f4f1e6);
+                    border:1px solid #ece8da; box-shadow:0 12px 20px rgba(0,0,0,.05); margin-bottom:16px;">
+          <div style="font-size:32px; font-weight:800; letter-spacing:.3px;">{title}</div>
+          <div style="color:#667085; margin-top:6px;">{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def metric_card(label: str, value: str, accent: str = "#16a34a"):
+    st.markdown(
+        f"""
+        <div style="border:1px solid #e5e7eb; border-radius:14px; padding:16px 18px; background:#fff;">
+          <div style="color:#6b7280; font-size:.92rem; margin-bottom:6px;">{label}</div>
+          <div style="font-size:26px; font-weight:800; color:{accent};">{value}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def render_history_card(*, title: str, meta: str, summary: str, fulltext: str):
+    """履歴を付箋風カードで描画"""
+    st.markdown(
+        f"""
+        <div class="sr-card sticky-note">
+          <div class="sr-title">{title}</div>
+          <div class="sr-meta">{meta}</div>
+
+          <div class="sr-sec">
+            <h4>要約</h4>
+            <div class="box">{summary or "-"}</div>
+          </div>
+
+          <div class="sr-sec" style="margin-top:12px;">
+            <details>
+              <summary style="cursor:pointer;">OCR全文を表示</summary>
+              <div class="box" style="margin-top:10px; white-space:pre-wrap;">{fulltext or "-"}</div>
+            </details>
+          </div>
         </div>
         """,
         unsafe_allow_html=True,
