@@ -59,95 +59,53 @@ import re  # ← ファイルの先頭付近で1回だけでOK（まだなけれ
 def render_history_card(*args, **kwargs):
     import re, html, streamlit as st
 
-    # --- HTMLタグ削除 ---
     def _clean_html(text: str | None) -> str:
-        if not text:
-            return ""
+        if not text: return ""
         t = re.sub(r"<details.*?</details>", "", text, flags=re.S)
         t = re.sub(r"<div.*?</div>", "", t, flags=re.S)
         t = re.sub(r"```.*?```", "", t, flags=re.S)
         t = re.sub(r"<[^>]+>", "", t)
         return t.strip()
 
-    # --- 付箋カード用CSSを一度だけ注入 ---
-    def _inject_note_css_once():
-        if st.session_state.get("_note_css_once"):
-            return
-        st.markdown("""
-        <style>
-        .note-card {
-            background:#FFF7C2;
-            border:1px solid #F3E19A;
-            border-radius:12px;
-            padding:16px 18px;
-            box-shadow:0 6px 20px rgba(0,0,0,.08);
-            position:relative;
-            margin: 8px 0 14px;
-        }
-        .note-card .note-tape {
-            position:absolute;top:-12px;left:50%;
-            transform:translateX(-50%) rotate(-2deg);
-            width:120px;height:18px;
-            background:rgba(255,235,130,.95);
-            box-shadow:0 2px 6px rgba(0,0,0,.15);
-            border-radius:2px;
-        }
-        .note-card .note-title{font-weight:700;font-size:1rem;margin:0 0 2px;}
-        .note-card .note-meta{font-size:.825rem;color:#6b7280;margin:0 0 10px;}
-        .note-card .note-summary ul{margin:0 0 6px 1.2rem;}
-        .note-card details{margin-top:10px;}
-        .note-card .note-full{margin-top:8px;white-space:pre-wrap;}
-        </style>
-        """, unsafe_allow_html=True)
-        st.session_state["_note_css_once"] = True
-
     def _to_html(text: str) -> str:
-        """テキストをHTMLに整形（箇条書き自動対応）"""
-        if not text:
-            return ""
+        if not text: return ""
         esc = html.escape(text)
         lines = [ln.strip() for ln in esc.splitlines() if ln.strip()]
         if any(ln[:1] in ("・","-","•","*") for ln in lines):
             items = []
             for ln in lines:
-                if ln[:1] in ("・","-","•","*"):
-                    items.append(f"<li>{ln[1:].strip()}</li>")
-                else:
-                    items.append(f"<li>{ln}</li>")
+                items.append(f"<li>{(ln[1:] if ln[:1] in ('・','-','•','*') else ln).strip()}</li>")
             return "<ul>" + "".join(items) + "</ul>"
         return "<p>" + "<br>".join(lines) + "</p>"
 
-    # --- 引数からデータ取得 ---
-    title = kwargs.get("title") or "Record"
-    meta = kwargs.get("meta") or ""
-    summary = _clean_html(kwargs.get("summary") or "")
+    # 引数取り出し
+    title    = kwargs.get("title") or "Record"
+    meta     = kwargs.get("meta") or ""
+    summary  = _clean_html(kwargs.get("summary") or "")
     fulltext = _clean_html(kwargs.get("fulltext") or "")
 
-    # --- CSS適用 + HTML描画 ---
-    _inject_note_css_once()
+    # f文字列で使う値はここで生成（←重要）
     title_html   = html.escape(title)
     meta_html    = html.escape(meta)
     summary_html = _to_html(summary)
     full_html    = _to_html(fulltext)
 
+    # 付箋カード（インラインCSS・関数“内側”）
     html_block = f"""
-    <div class="note-card"
-     style="background:#FFF7C2;border:1px solid #F3E19A;border-radius:12px;
-            padding:16px 18px;box-shadow:0 6px 20px rgba(0,0,0,.08);
-            position:relative;margin:8px 0 14px;">
-    <div class="note-tape"
-       style="position:absolute;top:-12px;left:50%;transform:translateX(-50%) rotate(-2deg);
-              width:120px;height:18px;background:rgba(255,235,130,.95);
-              box-shadow:0 2px 6px rgba(0,0,0,.15);border-radius:2px;"></div>
+    <div style="background:#FFF7C2;border:1px solid #F3E19A;border-radius:12px;
+                padding:16px 18px;box-shadow:0 6px 20px rgba(0,0,0,.08);
+                position:relative;margin:8px 0 14px;">
+      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%) rotate(-2deg);
+                  width:120px;height:18px;background:rgba(255,235,130,.95);
+                  box-shadow:0 2px 6px rgba(0,0,0,.15);border-radius:2px;"></div>
 
-    <div class="note-title" style="font-weight:700;font-size:1rem;margin:0 0 2px;">{title_html}</div>
-    {f'<div class="note-meta" style="font-size:.825rem;color:#6b7280;margin:0 0 10px;">{meta_html}</div>' if meta_html else ''}
-    {f'<div class="note-summary">{summary_html}</div>' if summary_html else ''}
-    {f'<details style="margin-top:10px;"><summary>全文を表示</summary><div class="note-full" style="margin-top:8px;white-space:pre-wrap;">{full_html}</div></details>' if full_html else ''}
+      <div style="font-weight:700;font-size:1rem;margin:0 0 2px;">{title_html}</div>
+      {f'<div style="font-size:.825rem;color:#6b7280;margin:0 0 10px;">{meta_html}</div>' if meta_html else ''}
+      {f'<div>{summary_html}</div>' if summary_html else ''}
+      {f'<details style="margin-top:10px;"><summary>全文を表示</summary><div style="margin-top:8px;white-space:pre-wrap;">{full_html}</div></details>' if full_html else ''}
     </div>
-"""
-
-st.markdown(html_block, unsafe_allow_html=True)
+    """
+    st.markdown(html_block, unsafe_allow_html=True)
 
 
 
