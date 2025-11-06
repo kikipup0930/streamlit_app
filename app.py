@@ -57,58 +57,90 @@ except Exception:
 import re  # ← ファイルの先頭付近で1回だけでOK（まだなければ追加）
 
 def render_history_card(*args, **kwargs):
-    """
-    どんな呼び出しシグネチャでも落ちないように受け止めるフォールバック。
-    例:
-      render_history_card(item, i, compact=True)
-      render_history_card(title=..., meta=..., summary=..., fulltext=...)
-    """
+    import re, html, streamlit as st
 
-    # ---- HTMLタグ除去用の小関数を追加 ----
+    # --- HTMLタグ削除 ---
     def _clean_html(text: str | None) -> str:
         if not text:
             return ""
-        # <div>や<details>などのタグごとに中身を削除
         t = re.sub(r"<details.*?</details>", "", text, flags=re.S)
         t = re.sub(r"<div.*?</div>", "", t, flags=re.S)
-        # コードブロック ``` ～ ``` を削除
         t = re.sub(r"```.*?```", "", t, flags=re.S)
-        # 最後に残るタグをすべて削除（<p>や<span>など）
         t = re.sub(r"<[^>]+>", "", t)
         return t.strip()
 
-    # --------------------------------------
+    # --- 付箋カード用CSSを一度だけ注入 ---
+    def _inject_note_css_once():
+        if st.session_state.get("_note_css_once"):
+            return
+        st.markdown("""
+        <style>
+        .note-card {
+            background:#FFF7C2;
+            border:1px solid #F3E19A;
+            border-radius:12px;
+            padding:16px 18px;
+            box-shadow:0 6px 20px rgba(0,0,0,.08);
+            position:relative;
+            margin: 8px 0 14px;
+        }
+        .note-card .note-tape {
+            position:absolute;top:-12px;left:50%;
+            transform:translateX(-50%) rotate(-2deg);
+            width:120px;height:18px;
+            background:rgba(255,235,130,.95);
+            box-shadow:0 2px 6px rgba(0,0,0,.15);
+            border-radius:2px;
+        }
+        .note-card .note-title{font-weight:700;font-size:1rem;margin:0 0 2px;}
+        .note-card .note-meta{font-size:.825rem;color:#6b7280;margin:0 0 10px;}
+        .note-card .note-summary ul{margin:0 0 6px 1.2rem;}
+        .note-card details{margin-top:10px;}
+        .note-card .note-full{margin-top:8px;white-space:pre-wrap;}
+        </style>
+        """, unsafe_allow_html=True)
+        st.session_state["_note_css_once"] = True
 
-    # できるだけ情報を拾う
-    title = kwargs.get("title")
-    meta = kwargs.get("meta") or kwargs.get("subtitle") or ""
-    summary = kwargs.get("summary") or kwargs.get("excerpt") or ""
-    fulltext = kwargs.get("fulltext") or kwargs.get("text") or ""
+    def _to_html(text: str) -> str:
+        """テキストをHTMLに整形（箇条書き自動対応）"""
+        if not text:
+            return ""
+        esc = html.escape(text)
+        lines = [ln.strip() for ln in esc.splitlines() if ln.strip()]
+        if any(ln[:1] in ("・","-","•","*") for ln in lines):
+            items = []
+            for ln in lines:
+                if ln[:1] in ("・","-","•","*"):
+                    items.append(f"<li>{ln[1:].strip()}</li>")
+                else:
+                    items.append(f"<li>{ln}</li>")
+            return "<ul>" + "".join(items) + "</ul>"
+        return "<p>" + "<br>".join(lines) + "</p>"
 
-    # 辞書が丸ごと渡ってきた場合も拾う
-    if not title and args:
-        first = args[0]
-        if isinstance(first, dict):
-            title = first.get("title") or first.get("filename") or "Record"
-            meta = meta or first.get("meta") or first.get("date") or ""
-            summary = summary or first.get("summary") or first.get("preview") or ""
-            fulltext = fulltext or first.get("text") or first.get("content") or ""
+    # --- 引数からデータ取得 ---
+    title = kwargs.get("title") or "Record"
+    meta = kwargs.get("meta") or ""
+    summary = _clean_html(kwargs.get("summary") or "")
+    fulltext = _clean_html(kwargs.get("fulltext") or "")
 
-    # ---- ここでHTML断片を削除 ----
-    summary = _clean_html(summary)
-    fulltext = _clean_html(fulltext)
-    # ---------------------------------
+    # --- CSS適用 + HTML描画 ---
+    _inject_note_css_once()
+    title_html   = html.escape(title)
+    meta_html    = html.escape(meta)
+    summary_html = _to_html(summary)
+    full_html    = _to_html(fulltext)
 
-    import streamlit as st
-    with st.container(border=True):
-        st.markdown(f"**{title or 'Record'}**")
-        if meta:
-            st.caption(meta)
-        if summary:
-            st.write(summary)
-        if fulltext:
-            with st.expander("全文を表示"):
-                st.write(fulltext)
+    html_block = f"""
+    <div class="note-card">
+      <div class="note-tape"></div>
+      <div class="note-title">{title_html}</div>
+      {'<div class="note-meta">'+meta_html+'</div>' if meta_html else ''}
+      {'<div class="note-summary">'+summary_html+'</div>' if summary_html else ''}
+      {f'<details><summary>全文を表示</summary><div class="note-full">{full_html}</div></details>' if full_html else ''}
+    </div>
+    """
+    st.markdown(html_block, unsafe_allow_html=True)
+
 
 
 
