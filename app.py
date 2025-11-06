@@ -593,7 +593,7 @@ def main():
     with tab_progress:
         render_progress_chart()
     with tab_review:
-    st.subheader("📚 復習（科目別）")
+        st.subheader("📚 復習（科目別）")
 
     # 履歴データ（セッションの records を利用）
     records = st.session_state.records
