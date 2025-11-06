@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from typing import List, Dict, Any
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from ui import inject_global_css, render_header, metric_card
+from collections import Counter, defaultdict
+
 
 import re
 
