@@ -147,7 +147,7 @@ html_block = f"""
 </div>
 """
 
-    st.markdown(html_block, unsafe_allow_html=True)
+st.markdown(html_block, unsafe_allow_html=True)
 
 
 
