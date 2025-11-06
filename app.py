@@ -22,6 +22,30 @@ from typing import List, Dict, Any
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from ui import inject_global_css, render_header, metric_card
 
+import re
+
+def _clean_for_card(text: str | None) -> str:
+    if not isinstance(text, str) or not text.strip():
+        return ""
+    t = text
+
+    # よく混ざってくる HTML 断片を丸ごと除去
+    t = re.sub(r"<details.*?</details>", "", t, flags=re.S | re.I)
+    t = re.sub(r'<div\s+class="sr-sec".*?</div>', "", t, flags=re.S | re.I)
+    t = re.sub(r'<div\s+class="box".*?</div>', "", t, flags=re.S | re.I)
+
+    # ``` ～ ``` のコードブロックも消す
+    t = re.sub(r"```.*?```", "", t, flags=re.S)
+
+    # もし残りのタグも全部いらないならコメントアウト解除
+    # t = re.sub(r"<[^>]+>", "", t)
+
+    # 余分な空白を整理
+    lines = [ln.strip() for ln in t.splitlines()]
+    t = "\n".join([ln for ln in lines if ln])  # 空行削除
+    return t.strip()
+
+
 
 # --- fallback for render_history_card (safe & signature-agnostic) ---
 try:
@@ -30,38 +54,62 @@ try:
 except Exception:
     import streamlit as st
 
-    def render_history_card(*args, **kwargs):
-        """
-        どんな呼び出しシグネチャでも落ちないように受け止めるフォールバック。
-        例:
-          render_history_card(item, i, compact=True)
-          render_history_card(title=..., meta=..., summary=..., fulltext=...)
-        """
-        # できるだけ情報を拾う
-        title = kwargs.get("title")
-        meta = kwargs.get("meta") or kwargs.get("subtitle") or ""
-        summary = kwargs.get("summary") or kwargs.get("excerpt") or ""
-        fulltext = kwargs.get("fulltext") or kwargs.get("text") or ""
+import re  # ← ファイルの先頭付近で1回だけでOK（まだなければ追加）
 
-        # 辞書が丸ごと渡ってきた場合も拾う
-        if not title and args:
-            first = args[0]
-            if isinstance(first, dict):
-                title = first.get("title") or first.get("filename") or "Record"
-                meta = meta or first.get("meta") or first.get("date") or ""
-                summary = summary or first.get("summary") or first.get("preview") or ""
-                fulltext = fulltext or first.get("text") or first.get("content") or ""
+def render_history_card(*args, **kwargs):
+    """
+    どんな呼び出しシグネチャでも落ちないように受け止めるフォールバック。
+    例:
+      render_history_card(item, i, compact=True)
+      render_history_card(title=..., meta=..., summary=..., fulltext=...)
+    """
 
-        # 最低限の描画
-        with st.container(border=True):
-            st.markdown(f"**{title or 'Record'}**")
-            if meta:
-                st.caption(meta)
-            if summary:
-                st.write(summary)
-            if fulltext:
-                with st.expander("全文を表示"):
-                    st.write(fulltext)
+    # ---- HTMLタグ除去用の小関数を追加 ----
+    def _clean_html(text: str | None) -> str:
+        if not text:
+            return ""
+        # <div>や<details>などのタグごとに中身を削除
+        t = re.sub(r"<details.*?</details>", "", text, flags=re.S)
+        t = re.sub(r"<div.*?</div>", "", t, flags=re.S)
+        # コードブロック ``` ～ ``` を削除
+        t = re.sub(r"```.*?```", "", t, flags=re.S)
+        # 最後に残るタグをすべて削除（<p>や<span>など）
+        t = re.sub(r"<[^>]+>", "", t)
+        return t.strip()
+
+    # --------------------------------------
+
+    # できるだけ情報を拾う
+    title = kwargs.get("title")
+    meta = kwargs.get("meta") or kwargs.get("subtitle") or ""
+    summary = kwargs.get("summary") or kwargs.get("excerpt") or ""
+    fulltext = kwargs.get("fulltext") or kwargs.get("text") or ""
+
+    # 辞書が丸ごと渡ってきた場合も拾う
+    if not title and args:
+        first = args[0]
+        if isinstance(first, dict):
+            title = first.get("title") or first.get("filename") or "Record"
+            meta = meta or first.get("meta") or first.get("date") or ""
+            summary = summary or first.get("summary") or first.get("preview") or ""
+            fulltext = fulltext or first.get("text") or first.get("content") or ""
+
+    # ---- ここでHTML断片を削除 ----
+    summary = _clean_html(summary)
+    fulltext = _clean_html(fulltext)
+    # ---------------------------------
+
+    import streamlit as st
+    with st.container(border=True):
+        st.markdown(f"**{title or 'Record'}**")
+        if meta:
+            st.caption(meta)
+        if summary:
+            st.write(summary)
+        if fulltext:
+            with st.expander("全文を表示"):
+                st.write(fulltext)
+
 
 
 
