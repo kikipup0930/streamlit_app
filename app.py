@@ -23,6 +23,48 @@ from azure.storage.blob import BlobServiceClient, ContentSettings
 from ui import inject_global_css, render_header, metric_card
 
 
+# --- fallback for render_history_card (safe & signature-agnostic) ---
+try:
+    # ui.py 等に本実装がある場合はそちらを優先
+    from ui import render_history_card  # 無ければ except に落ちる
+except Exception:
+    import streamlit as st
+
+    def render_history_card(*args, **kwargs):
+        """
+        どんな呼び出しシグネチャでも落ちないように受け止めるフォールバック。
+        例:
+          render_history_card(item, i, compact=True)
+          render_history_card(title=..., meta=..., summary=..., fulltext=...)
+        """
+        # できるだけ情報を拾う
+        title = kwargs.get("title")
+        meta = kwargs.get("meta") or kwargs.get("subtitle") or ""
+        summary = kwargs.get("summary") or kwargs.get("excerpt") or ""
+        fulltext = kwargs.get("fulltext") or kwargs.get("text") or ""
+
+        # 辞書が丸ごと渡ってきた場合も拾う
+        if not title and args:
+            first = args[0]
+            if isinstance(first, dict):
+                title = first.get("title") or first.get("filename") or "Record"
+                meta = meta or first.get("meta") or first.get("date") or ""
+                summary = summary or first.get("summary") or first.get("preview") or ""
+                fulltext = fulltext or first.get("text") or first.get("content") or ""
+
+        # 最低限の描画
+        with st.container(border=True):
+            st.markdown(f"**{title or 'Record'}**")
+            if meta:
+                st.caption(meta)
+            if summary:
+                st.write(summary)
+            if fulltext:
+                with st.expander("全文を表示"):
+                    st.write(fulltext)
+
+
+
 # =====================
 # 設定 (Streamlit Secretsから取得)
 # =====================
