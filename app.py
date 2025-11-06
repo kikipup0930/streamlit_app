@@ -17,6 +17,8 @@ import requests
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
+import math  # 復習間隔の計算で使用
+import re    # トピック抽出で使用（既にあれば重複OK）
 from dataclasses import dataclass
 from typing import List, Dict, Any
 from azure.storage.blob import BlobServiceClient, ContentSettings
@@ -321,6 +323,96 @@ def render_history(filters: Dict[str, Any]):
             fulltext=rec.text,
         )
 
+# =====================
+# 復習用ユーティリティ（科目ベース）
+# =====================
+
+def get_subject(rec) -> str:
+    # OcrRecord(subject: str) なので属性で取得
+    try:
+        v = getattr(rec, "subject", None)
+        if not v and isinstance(rec, dict):
+            v = rec.get("subject")
+        return (v or "未分類").strip()
+    except Exception:
+        return "未分類"
+
+# 簡易弱点度（0〜1）
+_WEAK_HINT_WORDS = ("わから","不明","注意","課題","難し","苦手")
+def _weakness_score(text: str) -> float:
+    if not text:
+        return 0.3
+    score = 0.3 + min(0.3, sum(text.count(k) for k in _WEAK_HINT_WORDS)*0.07)
+    if len(text) > 2000:
+        score += 0.1
+    return float(max(0.0, min(1.0, score)))
+
+# ざっくり日本語トークン（既存のものがあればそれでもOK）
+_JA_TOKEN = re.compile(r"[ぁ-んァ-ヶ一-龥A-Za-z0-9]+")
+_STOP = set("これ それ あれ ここ そこ 私 僕 あなた です ます する した して いる ある ない こと もの また しかし 一方 に より へ を の と が は で も から まで など ため 例 方 的 そして さらに".split())
+def _tokenize(text: str) -> list[str]:
+    if not text:
+        return []
+    toks = [t for t in _JA_TOKEN.findall(text)]
+    return [t for t in toks if len(t) > 1 and t not in _STOP]
+
+# 科目内の頻出トピック（弱点度で重み付け）
+def collect_topics_for_subject(records: list) -> list[tuple[str, float]]:
+    bag = Counter()
+    for rec in records:
+        summary = getattr(rec, "summary", "") or (rec.get("summary") if isinstance(rec, dict) else "") or ""
+        text    = getattr(rec, "text", "")    or (rec.get("text")    if isinstance(rec, dict) else "") or ""
+        weak    = _weakness_score(summary + "\n" + text)
+        for t in _tokenize(summary + "\n" + text):
+            bag[t] += 1.0 + weak
+    return bag.most_common(50)
+
+# 学習状態（SM-2簡易）
+def _learn_state(rid: str) -> dict:
+    st.session_state.setdefault("_learn_state", {})
+    return st.session_state["_learn_state"].setdefault(
+        rid, {"streak": 0, "ef": 2.5, "interval": 1, "next_due": None, "last": None}
+    )
+
+def _update_review(rid: str, quality: int, today: dt.date):
+    s = _learn_state(rid)
+    ef = s["ef"] + (0.1 - (5-quality)*(0.08+(5-quality)*0.02))
+    s["ef"] = max(1.3, min(2.8, ef))
+    s["streak"] = 0 if quality < 3 else s["streak"] + 1
+    if s["streak"] <= 1: interval = 1
+    elif s["streak"] == 2: interval = 2
+    else: interval = math.ceil(s["interval"] * s["ef"])
+    s["interval"] = interval
+    s["next_due"] = today + dt.timedelta(days=interval)
+    s["last"] = quality
+
+# かんたん問題生成（○×／穴埋め／短答）
+def _make_tf_question(topic: str) -> dict:
+    stmt_true  = f"{topic}は今回の学習内容と関連がある。"
+    stmt_false = f"{topic}は今回の学習内容と無関係である。"
+    is_true = (hash(topic) % 2 == 0)
+    return {"type":"TF","q": (stmt_true if is_true else stmt_false), "answer": ("○" if is_true else "×"), "ex": f"本文中で『{topic}』の扱い有無で判断。"}
+
+def _pick_sentence(text: str, topic: str) -> str:
+    for ln in text.splitlines():
+        if topic in ln and 5 <= len(ln) <= 120:
+            return ln.strip()
+    return (text[:120] + "…") if text else f"{topic} に関する説明文"
+
+def _make_cloze_question(sentence: str, topic: str) -> dict:
+    hint = topic[:1] + ("_" * max(2, len(topic)-1))
+    return {"type":"CLOZE","q": f"空欄を埋めよ: {sentence.replace(topic,'____')}",
+            "answer": topic, "ex": f"ヒント: {hint}"}
+
+def generate_questions_for_topic(rec, topic: str) -> list[dict]:
+    text = (getattr(rec,"summary","") or "") + "\n" + (getattr(rec,"text","") or "")
+    qs = []
+    qs.append(_make_tf_question(topic))
+    sent = _pick_sentence(text, topic)
+    if topic in sent:
+        qs.append(_make_cloze_question(sent, topic))
+    qs.append({"type":"SHORT","q": f"『{topic}』の要点を20〜40文字で説明せよ。","answer": f"{topic}の定義や特徴を本文から要約","ex":"自分の言葉で簡潔に"})
+    return qs[:3]
 
 def render_ocr_tab():
     st.markdown("### OCR")
@@ -493,13 +585,92 @@ def main():
     inject_global_css() 
     render_header(APP_TITLE)
     filters = render_sidebar()
-    tab_ocr, tab_hist, tab_progress = st.tabs(["OCR", "履歴", "進捗"])
+    tab_ocr, tab_hist, tab_progress = st.tabs(["OCR", "履歴", "進捗", "復習"])
     with tab_ocr:
         render_ocr_tab()
     with tab_hist:
         render_history(filters)
     with tab_progress:
         render_progress_chart()
+    with tab_review:
+    st.subheader("📚 復習（科目別）")
+
+    # 履歴データ（セッションの records を利用）
+    records = st.session_state.records
+    if not records:
+        st.info("まだ履歴がありません。OCRしてからお試しください。")
+    else:
+        # 1) 履歴に“実在する科目”だけでグルーピング
+        subject_to_records = {}
+        for rec in records:
+            subj = get_subject(rec)
+            subject_to_records.setdefault(subj, []).append(rec)
+
+        subjects = sorted(subject_to_records.keys())
+        sel = st.selectbox("科目を選ぶ", subjects, index=0)
+
+        target_recs = subject_to_records.get(sel, [])
+        st.caption(f"{sel}：{len(target_recs)}件")
+
+        # 2) 科目内の弱点トピック
+        topic_list = collect_topics_for_subject(target_recs)
+        if not topic_list:
+            st.info("この科目のトピックが見つかりません。")
+        else:
+            st.markdown("### 弱点候補トピック")
+            chips = []
+            for tok, score in topic_list[:12]:
+                alpha = 0.35 + min(0.65, score/6)
+                chips.append(
+                    f'<span style="background:rgba(255,215,0,{alpha});padding:4px 8px;border-radius:999px;margin:4px;display:inline-block;">{tok}</span>'
+                )
+            st.markdown("<div>" + "".join(chips) + "</div>", unsafe_allow_html=True)
+
+            # 3) 代表レコード1〜3件から、各トピックの復習問題を生成
+            st.markdown("### 復習問題（自動生成）")
+            def _created(rec):
+                c = getattr(rec,"created_at", None)
+                try:
+                    return dt.datetime.fromisoformat(str(c).replace("Z",""))
+                except Exception:
+                    return dt.datetime.min
+            target_recs_sorted = sorted(target_recs, key=_created, reverse=True)[:3]
+
+            shown = 0
+            for rec in target_recs_sorted:
+                if shown >= 3: break
+                title = getattr(rec,"filename","") or "Record"
+                st.markdown(f"#### 📝 {title}")
+
+                text_all = (getattr(rec,"summary","") or "") + "\n" + (getattr(rec,"text","") or "")
+                toks_ranked = [(tok, sc) for tok, sc in topic_list if tok in text_all][:2] or topic_list[:1]
+
+                for i, (tok, _) in enumerate(toks_ranked):
+                    st.markdown(f"**トピック:** {tok}")
+                    qs = generate_questions_for_topic(rec, tok)
+                    for j, q in enumerate(qs):
+                        with st.container(border=True):
+                            st.write(f"Q{j+1}（{q['type']}）: {q['q']}")
+                            with st.expander("模範解答 / ヒント"):
+                                st.write(q["answer"])
+                                st.caption(q["ex"])
+
+                            # 学習状態は「レコードID::トピック」で管理
+                            rid = (getattr(rec,"id", None) or title)
+                            rid = f"{rid}::{tok}"
+                            today = dt.datetime.now().date()
+                            ca, cb, cc = st.columns(3)
+                            with ca:
+                                if st.button("✅ やった", key=f"q_done_{rid}_{i}_{j}"):
+                                    _update_review(rid, 4, today); st.experimental_rerun()
+                            with cb:
+                                if st.button("👍 易しい", key=f"q_easy_{rid}_{i}_{j}"):
+                                    _update_review(rid, 5, today); st.experimental_rerun()
+                            with cc:
+                                if st.button("🤔 難しい", key=f"q_hard_{rid}_{i}_{j}"):
+                                    _update_review(rid, 2, today); st.experimental_rerun()
+                shown += 1
+
 
 if __name__ == "__main__":
     main()
