@@ -130,21 +130,21 @@ def render_history_card(*args, **kwargs):
     summary_html = _to_html(summary)
     full_html    = _to_html(fulltext)
 
-html_block = f"""
-<div class="note-card"
+    html_block = f"""
+    <div class="note-card"
      style="background:#FFF7C2;border:1px solid #F3E19A;border-radius:12px;
             padding:16px 18px;box-shadow:0 6px 20px rgba(0,0,0,.08);
             position:relative;margin:8px 0 14px;">
-  <div class="note-tape"
+    <div class="note-tape"
        style="position:absolute;top:-12px;left:50%;transform:translateX(-50%) rotate(-2deg);
               width:120px;height:18px;background:rgba(255,235,130,.95);
               box-shadow:0 2px 6px rgba(0,0,0,.15);border-radius:2px;"></div>
 
-  <div class="note-title" style="font-weight:700;font-size:1rem;margin:0 0 2px;">{title_html}</div>
-  {f'<div class="note-meta" style="font-size:.825rem;color:#6b7280;margin:0 0 10px;">{meta_html}</div>' if meta_html else ''}
-  {f'<div class="note-summary">{summary_html}</div>' if summary_html else ''}
-  {f'<details style="margin-top:10px;"><summary>全文を表示</summary><div class="note-full" style="margin-top:8px;white-space:pre-wrap;">{full_html}</div></details>' if full_html else ''}
-</div>
+    <div class="note-title" style="font-weight:700;font-size:1rem;margin:0 0 2px;">{title_html}</div>
+    {f'<div class="note-meta" style="font-size:.825rem;color:#6b7280;margin:0 0 10px;">{meta_html}</div>' if meta_html else ''}
+    {f'<div class="note-summary">{summary_html}</div>' if summary_html else ''}
+    {f'<details style="margin-top:10px;"><summary>全文を表示</summary><div class="note-full" style="margin-top:8px;white-space:pre-wrap;">{full_html}</div></details>' if full_html else ''}
+    </div>
 """
 
 st.markdown(html_block, unsafe_allow_html=True)
