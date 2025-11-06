@@ -585,7 +585,8 @@ def main():
     inject_global_css() 
     render_header(APP_TITLE)
     filters = render_sidebar()
-    tab_ocr, tab_hist, tab_progress = st.tabs(["OCR", "履歴", "進捗", "復習"])
+    tab_ocr, tab_hist, tab_progress, tab_review = st.tabs(["OCR", "履歴", "進捗", "復習"])
+
     with tab_ocr:
         render_ocr_tab()
     with tab_hist:
