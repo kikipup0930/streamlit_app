@@ -440,42 +440,42 @@ def render_ocr_tab():
             # プレビュー画像（小さめ）
             st.image(uploaded, caption=uploaded.name, width=400)
 
-with col_btn:
-    # このページ内の st.button を「大きく丸く」スタイル
-    st.markdown("""
-        <style>
-        div.stButton > button {
-            font-size: 22px !important;
-            padding: 20px 40px !important;
-            border-radius: 999px !important;    /* ほぼ円形 */
-            background-color: #2563EB !important;
-            color: white !important;
-            border: none !important;
-            box-shadow: 0px 4px 12px rgba(0,0,0,0.2);
-        }
-        div.stButton > button:hover {
-            background-color: #1D4ED8 !important;
-            transform: scale(1.05);
-        }
-        </style>
-    """, unsafe_allow_html=True)
+        with col_btn:
+            # このページ内の st.button を「大きく丸く」スタイル
+            st.markdown("""
+                <style>
+                div.stButton > button {
+                    font-size: 22px !important;
+                    padding: 20px 40px !important;
+                    border-radius: 999px !important;    /* ほぼ円形 */
+                    background-color: #2563EB !important;
+                    color: white !important;
+                    border: none !important;
+                    box-shadow: 0px 4px 12px rgba(0,0,0,0.2);
+                }
+                div.stButton > button:hover {
+                    background-color: #1D4ED8 !important;
+                    transform: scale(1.05);
+                }
+                </style>
+            """, unsafe_allow_html=True)
 
-    # 実行ボタン本体
-    if st.button("実行", key="round_big_run"):
-        image_bytes = uploaded.read()
-        text = run_azure_ocr(image_bytes)
-        summary = run_azure_summary(text)
-        rec = OcrRecord(
-            id=str(uuid.uuid4()),
-            created_at=_now_iso(),
-            filename=uploaded.name,
-            text=text,
-            summary=summary,
-            subject=subject,
-            meta={"size": len(image_bytes)}
-        )
-        st.session_state.records.insert(0, rec)
-        save_to_blob_csv(rec)
+            # 実行ボタン本体
+            if st.button("実行", key="round_big_run"):
+                image_bytes = uploaded.read()
+                text = run_azure_ocr(image_bytes)
+                summary = run_azure_summary(text)
+                rec = OcrRecord(
+                    id=str(uuid.uuid4()),
+                    created_at=_now_iso(),
+                    filename=uploaded.name,
+                    text=text,
+                    summary=summary,
+                    subject=subject,
+                    meta={"size": len(image_bytes)}
+                )
+                st.session_state.records.insert(0, rec)
+                save_to_blob_csv(rec)
 
 
 
