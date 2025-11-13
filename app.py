@@ -431,7 +431,7 @@ def render_ocr_tab():
 
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
     if uploaded is not None:
-        st.image(uploaded, caption=uploaded.name, use_container_width=True)
+        st.image(uploaded, caption=uploaded.name, width=350)
         if st.button("実行", use_container_width=True):
             image_bytes = uploaded.read()
             text = run_azure_ocr(image_bytes)
@@ -606,7 +606,7 @@ def main():
         render_progress_chart()
 
     with tab_review:
-        st.subheader("📚 復習（科目別）")
+        st.subheader("復習（科目別）")
 
         # ここから下は必ず tab_review の“中”に置く
         records = st.session_state.records
@@ -650,7 +650,7 @@ def main():
 
                 for rec in sorted(target_recs, key=_created, reverse=True)[:3]:
                     title = getattr(rec, "filename", "") or "Record"
-                    st.markdown(f"#### 📝 {title}")
+                    st.markdown(f"####  {title}")
 
                     text_all = (getattr(rec, "summary", "") or "") + "\n" + (getattr(rec, "text", "") or "")
                     toks_ranked = [(tok, sc) for tok, sc in topic_list if tok in text_all][:2] or topic_list[:1]
