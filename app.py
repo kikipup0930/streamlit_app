@@ -430,18 +430,41 @@ def render_ocr_tab():
     subject = st.selectbox("科目を選択", st.session_state["subjects"], index=0)
 
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
+
     if uploaded is not None:
+
         # 画像とボタンを横並びにする
-        col_img, col_btn = st.columns([2, 1])
+        col_img, col_btn = st.columns([3, 1])
 
         with col_img:
-            st.image(uploaded, caption=uploaded.name, width=550)
+            # プレビュー画像（小さめ）
+            st.image(uploaded, caption=uploaded.name, width=400)
 
         with col_btn:
-            # ちょっと上に余白を入れて縦位置を合わせる（お好みで調整）
-            st.write("")
-            st.write("")
-            if st.button("実行", use_container_width=True):
+            # 丸くて大きい実行ボタンのCSS
+            st.markdown("""
+                <style>
+                .round-big-btn button {
+                    font-size: 22px !important;
+                    padding: 25px 20px !important;
+                    width: 160px !important;
+                    height: 160px !important;
+                    border-radius: 100px !important; 
+                    background-color: #2563EB !important;
+                    color: white !important;
+                    border: none !important;
+                    box-shadow: 0px 4px 12px rgba(0,0,0,0.2);
+                }
+                .round-big-btn button:hover {
+                    background-color: #1D4ED8 !important;
+                    transform: scale(1.03);
+                }
+                </style>
+            """, unsafe_allow_html=True)
+
+            st.markdown('<div class="round-big-btn">', unsafe_allow_html=True)
+
+            if st.button("実行", key="round_big_run"):
                 image_bytes = uploaded.read()
                 text = run_azure_ocr(image_bytes)
                 summary = run_azure_summary(text)
@@ -456,6 +479,9 @@ def render_ocr_tab():
                 )
                 st.session_state.records.insert(0, rec)
                 save_to_blob_csv(rec)
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
 
 
 def render_sidebar():
