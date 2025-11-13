@@ -435,9 +435,49 @@ def render_ocr_tab():
         col_img, col_btn = st.columns([2, 1])
 
         with col_img:
-            st.image(uploaded, caption=uploaded.name, width=550)
+            st.image(uploaded, caption=uploaded.name, width=350)
 
-with col_btn:
+        with col_btn:
+            # 上に余白を入れてボタンの縦位置を少し下げる（お好みで調整）
+            st.write("")
+            st.write("")
+
+            # ボタンを大きくするためのCSS
+            st.markdown("""
+                <style>
+                .big-run-btn button {
+                    font-size: 20px !important;
+                    padding: 18px 40px !important;
+                    border-radius: 10px !important;
+                    background-color: #2563EB !important;
+                    color: white !important;
+                    width: 100% !important;
+                }
+                </style>
+                <div class="big-run-btn">
+                """,
+                unsafe_allow_html=True,
+            )
+
+            # 実行ボタン
+            if st.button("実行", key="run_button"):
+                image_bytes = uploaded.read()
+                text = run_azure_ocr(image_bytes)
+                summary = run_azure_summary(text)
+                rec = OcrRecord(
+                    id=str(uuid.uuid4()),
+                    created_at=_now_iso(),
+                    filename=uploaded.name,
+                    text=text,
+                    summary=summary,
+                    subject=subject,
+                    meta={"size": len(image_bytes)},
+                )
+                st.session_state.records.insert(0, rec)
+                save_to_blob_csv(rec)
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
     st.write("")  # 上余白
     st.write("")
 
