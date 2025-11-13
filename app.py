@@ -437,25 +437,43 @@ def render_ocr_tab():
         with col_img:
             st.image(uploaded, caption=uploaded.name, width=550)
 
-        with col_btn:
-            # ちょっと上に余白を入れて縦位置を合わせる（お好みで調整）
-            st.write("")
-            st.write("")
-            if st.button("実行", use_container_width=True):
-                image_bytes = uploaded.read()
-                text = run_azure_ocr(image_bytes)
-                summary = run_azure_summary(text)
-                rec = OcrRecord(
-                    id=str(uuid.uuid4()),
-                    created_at=_now_iso(),
-                    filename=uploaded.name,
-                    text=text,
-                    summary=summary,
-                    subject=subject,
-                    meta={"size": len(image_bytes)}
-                )
-                st.session_state.records.insert(0, rec)
-                save_to_blob_csv(rec)
+with col_btn:
+    st.write("")  # 上余白
+    st.write("")
+
+    # ▼ ボタンを大きくして中央に
+    big_button = st.markdown("""
+        <style>
+        .big-run-btn button {
+            font-size: 20px !important;
+            padding: 18px 40px !important;
+            border-radius: 10px !important;
+            background-color: #2563EB !important;
+            color: white !important;
+            width: 100% !important;
+        }
+        </style>
+        <div class="big-run-btn">
+    """, unsafe_allow_html=True)
+
+    if st.button("実行", key="run_button"):
+        image_bytes = uploaded.read()
+        text = run_azure_ocr(image_bytes)
+        summary = run_azure_summary(text)
+        rec = OcrRecord(
+            id=str(uuid.uuid4()),
+            created_at=_now_iso(),
+            filename=uploaded.name,
+            text=text,
+            summary=summary,
+            subject=subject,
+            meta={"size": len(image_bytes)}
+        )
+        st.session_state.records.insert(0, rec)
+        save_to_blob_csv(rec)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
 
 def render_sidebar():
