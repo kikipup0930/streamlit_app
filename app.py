@@ -435,7 +435,7 @@ def render_ocr_tab():
         col_img, col_btn = st.columns([2, 1])
 
         with col_img:
-            st.image(uploaded, caption=uploaded.name, width=350)
+            st.image(uploaded, caption=uploaded.name, width=550)
 
         with col_btn:
             # ちょっと上に余白を入れて縦位置を合わせる（お好みで調整）
