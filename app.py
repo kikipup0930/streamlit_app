@@ -433,9 +433,6 @@ def render_ocr_tab():
 
     if uploaded is not None:
 
-        # 画像とボタンを横並びにする
-        col_img, col_btn = st.columns([3, 1])
-
         with col_img:
             # プレビュー画像（小さめ）
             st.image(uploaded, caption=uploaded.name, width=400)
