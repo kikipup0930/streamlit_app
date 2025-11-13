@@ -431,22 +431,32 @@ def render_ocr_tab():
 
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
     if uploaded is not None:
-        st.image(uploaded, caption=uploaded.name, width=350)
-        if st.button("実行", use_container_width=True):
-            image_bytes = uploaded.read()
-            text = run_azure_ocr(image_bytes)
-            summary = run_azure_summary(text)
-            rec = OcrRecord(
-                id=str(uuid.uuid4()),
-                created_at=_now_iso(),
-                filename=uploaded.name,
-                text=text,
-                summary=summary,
-                subject=subject,
-                meta={"size": len(image_bytes)}
-            )
-            st.session_state.records.insert(0, rec)
-            save_to_blob_csv(rec)
+        # 画像とボタンを横並びにする
+        col_img, col_btn = st.columns([2, 1])
+
+        with col_img:
+            st.image(uploaded, caption=uploaded.name, width=350)
+
+        with col_btn:
+            # ちょっと上に余白を入れて縦位置を合わせる（お好みで調整）
+            st.write("")
+            st.write("")
+            if st.button("実行", use_container_width=True):
+                image_bytes = uploaded.read()
+                text = run_azure_ocr(image_bytes)
+                summary = run_azure_summary(text)
+                rec = OcrRecord(
+                    id=str(uuid.uuid4()),
+                    created_at=_now_iso(),
+                    filename=uploaded.name,
+                    text=text,
+                    summary=summary,
+                    subject=subject,
+                    meta={"size": len(image_bytes)}
+                )
+                st.session_state.records.insert(0, rec)
+                save_to_blob_csv(rec)
+
 
 def render_sidebar():
     with st.sidebar:
