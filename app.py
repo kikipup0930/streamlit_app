@@ -631,7 +631,7 @@ def main():
 
     st.set_page_config(page_title=APP_TITLE, layout="wide")
     inject_global_css()
-st.markdown("""
+    st.markdown("""
 <style>
 /* タブパネル共通の余白＆角丸 */
 div[data-testid="stTabs"] div[data-baseweb="tab-panel"] {
