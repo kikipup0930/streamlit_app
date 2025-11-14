@@ -658,7 +658,6 @@ h3 {
     display: inline-block;
     font-size: 1.9rem !important;
     font-weight: 900 !important;
-    padding: 4px 14px;
     background: #DBEAFE;      /* 薄い青 */
     color: #1E3A8A;           /* 濃い青 */
     border-radius: 6px;
