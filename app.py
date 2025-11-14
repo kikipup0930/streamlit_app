@@ -632,34 +632,35 @@ def main():
     st.set_page_config(page_title=APP_TITLE, layout="wide")
     inject_global_css()
     st.markdown("""
-    <style>
-    /* タブパネル共通の余白＆角丸 */
-    div[data-baseweb="tab-panel"] {
-        padding: 16px 24px;
-        border-radius: 12px;
-    }
+<style>
+/* タブパネル共通の余白＆角丸 */
+div[data-testid="stTabs"] > div[data-baseweb="tab-panel"] {
+    padding: 16px 24px;
+    border-radius: 12px;
+}
 
-    /* 1つ目のタブ（OCR） */
-    div[data-baseweb="tab-panel"]:nth-of-type(1) {
-        background: #E8F0FE;
-    }
+/* 1つ目のタブ（OCR） */
+div[data-testid="stTabs"] > div[data-baseweb="tab-panel"]:nth-of-type(1) {
+    background: #E8F0FE;
+}
 
-    /* 2つ目のタブ（履歴） */
-    div[data-baseweb="tab-panel"]:nth-of-type(2) {
-        background: #C5D9FD;
-    }
+/* 2つ目のタブ（履歴） */
+div[data-testid="stTabs"] > div[data-baseweb="tab-panel"]:nth-of-type(2) {
+    background: #C5D9FD;
+}
 
-    /* 3つ目のタブ（進捗） */
-    div[data-baseweb="tab-panel"]:nth-of-type(3) {
-        background: #A6C5FC;
-    }
+/* 3つ目のタブ（進捗） */
+div[data-testid="stTabs"] > div[data-baseweb="tab-panel"]:nth-of-type(3) {
+    background: #A6C5FC;
+}
 
-    /* 4つ目のタブ（復習） */
-    div[data-baseweb="tab-panel"]:nth-of-type(4) {
-        background: #8BB3FB;
-    }
-    </style>
+/* 4つ目のタブ（復習） */
+div[data-testid="stTabs"] > div[data-baseweb="tab-panel"]:nth-of-type(4) {
+    background: #8BB3FB;
+}
+</style>
     """, unsafe_allow_html=True)
+
 
 
     render_header(APP_TITLE)
