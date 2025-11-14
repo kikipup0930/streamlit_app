@@ -631,17 +631,36 @@ def main():
 
     st.set_page_config(page_title=APP_TITLE, layout="wide")
     inject_global_css()
-
-    # ★ タブ用の共通スタイル
     st.markdown("""
-<style>
-.tab-bg {
-    padding: 20px;
-    border-radius: 12px;
-    margin-top: 12px;
-}
-</style>
-""", unsafe_allow_html=True)
+    <style>
+    /* タブパネル共通の余白＆角丸 */
+    div[data-baseweb="tab-panel"] {
+        padding: 16px 24px;
+        border-radius: 12px;
+    }
+
+    /* 1つ目のタブ（OCR） */
+    div[data-baseweb="tab-panel"]:nth-of-type(1) {
+        background: #E8F0FE;
+    }
+
+    /* 2つ目のタブ（履歴） */
+    div[data-baseweb="tab-panel"]:nth-of-type(2) {
+        background: #C5D9FD;
+    }
+
+    /* 3つ目のタブ（進捗） */
+    div[data-baseweb="tab-panel"]:nth-of-type(3) {
+        background: #A6C5FC;
+    }
+
+    /* 4つ目のタブ（復習） */
+    div[data-baseweb="tab-panel"]:nth-of-type(4) {
+        background: #8BB3FB;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 
     render_header(APP_TITLE)
 
@@ -651,31 +670,22 @@ def main():
     # タブ
     tab_ocr, tab_hist, tab_progress, tab_review = st.tabs(["OCR", "履歴", "進捗", "復習"])
 
-    # --- OCRタブ（いちばん薄い青） ---
+    # --- OCRタブ ---
     with tab_ocr:
-        st.markdown("<div class='tab-bg' style='background:#E8F0FE;'>", unsafe_allow_html=True)
         render_ocr_tab()
-        st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- 履歴タブ（少し濃い青） ---
+    # --- 履歴タブ ---
     with tab_hist:
-        st.markdown("<div class='tab-bg' style='background:#C5D9FD;'>", unsafe_allow_html=True)
         render_history(filters)
-        st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- 進捗タブ（中くらいの青） ---
+    # --- 進捗タブ ---
     with tab_progress:
-        st.markdown("<div class='tab-bg' style='background:#A6C5FC;'>", unsafe_allow_html=True)
         render_progress_chart()
-        st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- 復習タブ（いちばん濃い青） ---
+    # --- 復習タブ ---
     with tab_review:
-        st.markdown("<div class='tab-bg' style='background:#8BB3FB;'>", unsafe_allow_html=True)
-
         st.subheader("復習（科目別）")
 
-        # ここから下は必ず tab_review の“中”に置く
         records = st.session_state.records
         if not records:
             st.info("まだ履歴がありません。OCRしてからお試しください。")
@@ -746,10 +756,7 @@ def main():
                                     if st.button("🤔 難しい", key=f"q_hard_{rid}_{i}_{j}"):
                                         _update_review(rid, 2, today); st.experimental_rerun()
 
-        # ★ 最後に div を閉じる
-        st.markdown("</div>", unsafe_allow_html=True)
-
-
 if __name__ == "__main__":
     main()
+
 
