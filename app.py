@@ -653,6 +653,18 @@ div[data-testid="stTabs"] button[aria-selected="true"] {
 div[data-testid="stTabs"] button:hover {
     color: #1d4ed8 !important;
 }
+/* タブ下の各ページタイトル（OCR / 履歴 / 進捗 / 復習） */
+h3 {
+    display: inline-block;
+    font-size: 1.9rem !important;
+    font-weight: 900 !important;
+    padding: 4px 14px;
+    background: #DBEAFE;      /* 薄い青 */
+    color: #1E3A8A;           /* 濃い青 */
+    border-radius: 6px;
+    margin-top: 8px !important;
+    margin-bottom: 18px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
