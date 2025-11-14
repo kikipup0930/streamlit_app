@@ -654,11 +654,11 @@ div[data-testid="stTabs"] button:hover {
     color: #1d4ed8 !important;
 }
 /* タブ下の各ページタイトル（OCR / 履歴 / 進捗 / 復習） */
-h3 {
+[data-testid="stMarkdownContainer"] h3 {
     display: inline-block;
     font-size: 1.9rem !important;
     font-weight: 900 !important;
-    color: #1E3A8A;           /* 濃い青 */
+    color: #1E3A8A !important;   /* ← ここに !important を付ける */
     border-radius: 6px;
     margin-top: 8px !important;
     margin-bottom: 18px !important;
