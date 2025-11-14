@@ -416,7 +416,7 @@ def generate_questions_for_topic(rec, topic: str) -> list[dict]:
     qs.append({"type":"SHORT","q": f"『{topic}』の要点を20〜40文字で説明せよ。","answer": f"{topic}の定義や特徴を本文から要約","ex":"自分の言葉で簡潔に"})
     return qs[:3]
 
-ddef render_ocr_tab():
+def render_ocr_tab():
     st.markdown("### OCR")
 
     # 科目リストの初期化（空配列でselectboxが落ちないようガード）
