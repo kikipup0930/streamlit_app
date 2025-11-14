@@ -433,7 +433,7 @@ def render_ocr_tab():
 
     if uploaded is not None:
         # ───────── ここから中央寄せレイアウト ─────────
-        left, center, right = st.columns([1, 2, 3])
+        left, center, right = st.columns([1, 4, 3])
 
         with center:
             # プレビュー画像（中央）
