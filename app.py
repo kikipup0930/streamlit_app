@@ -416,7 +416,7 @@ def generate_questions_for_topic(rec, topic: str) -> list[dict]:
     qs.append({"type":"SHORT","q": f"『{topic}』の要点を20〜40文字で説明せよ。","answer": f"{topic}の定義や特徴を本文から要約","ex":"自分の言葉で簡潔に"})
     return qs[:3]
 
-def render_ocr_tab():
+ddef render_ocr_tab():
     st.markdown("### OCR")
 
     # 科目リストの初期化（空配列でselectboxが落ちないようガード）
@@ -432,47 +432,54 @@ def render_ocr_tab():
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
 
     if uploaded is not None:
+        # 画像プレビュー（横幅に合わせて表示）
+        st.image(uploaded, caption=uploaded.name, use_column_width=True)
 
-        with col_img:
-            # プレビュー画像（小さめ）
-            st.image(uploaded, caption=uploaded.name, width=400)
+        # ちょっと余白
+        st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
 
-        with col_btn:
-            # このページ内の st.button を「大きく丸く」スタイル
-            st.markdown("""
-                <style>
-                div.stButton > button {
-                    font-size: 22px !important;
-                    padding: 20px 40px !important;
-                    border-radius: 999px !important;    /* ほぼ円形 */
-                    background-color: #2563EB !important;
-                    color: white !important;
-                    border: none !important;
-                    box-shadow: 0px 4px 12px rgba(0,0,0,0.2);
-                }
-                div.stButton > button:hover {
-                    background-color: #1D4ED8 !important;
-                    transform: scale(1.05);
-                }
-                </style>
-            """, unsafe_allow_html=True)
+        # ボタンの見た目を調整（丸く大きく）
+        st.markdown("""
+            <style>
+            div.stButton > button#round_big_run {
+                font-size: 22px !important;
+                padding: 20px 40px !important;
+                border-radius: 999px !important;
+                background-color: #2563EB !important;
+                color: white !important;
+                border: none !important;
+                box-shadow: 0px 4px 12px rgba(0,0,0,0.2);
+                display: block;
+                margin: 0 auto;  /* 中央寄せ */
+            }
+            div.stButton > button#round_big_run:hover {
+                background-color: #1D4ED8 !important;
+                transform: scale(1.05);
+            }
+            </style>
+        """, unsafe_allow_html=True)
 
-            # 実行ボタン本体
-            if st.button("実行", key="round_big_run"):
-                image_bytes = uploaded.read()
-                text = run_azure_ocr(image_bytes)
-                summary = run_azure_summary(text)
-                rec = OcrRecord(
-                    id=str(uuid.uuid4()),
-                    created_at=_now_iso(),
-                    filename=uploaded.name,
-                    text=text,
-                    summary=summary,
-                    subject=subject,
-                    meta={"size": len(image_bytes)}
-                )
-                st.session_state.records.insert(0, rec)
-                save_to_blob_csv(rec)
+        # 実行ボタン（画像の下）
+        if st.button("実行", key="round_big_run"):
+            # st.image で読まれている可能性があるので念のため先頭に戻す
+            uploaded.seek(0)
+            image_bytes = uploaded.read()
+
+            text = run_azure_ocr(image_bytes)
+            summary = run_azure_summary(text)
+
+            rec = OcrRecord(
+                id=str(uuid.uuid4()),
+                created_at=_now_iso(),
+                filename=uploaded.name,
+                text=text,
+                summary=summary,
+                subject=subject,
+                meta={"size": len(image_bytes)},
+            )
+            st.session_state.records.insert(0, rec)
+            save_to_blob_csv(rec)
+
 
 
 
