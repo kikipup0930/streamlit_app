@@ -432,27 +432,27 @@ def render_ocr_tab():
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
 
     if uploaded is not None:
-        # 画像プレビュー（横幅に合わせて表示）
-        st.image(uploaded, caption=uploaded.name, use_column_width=True)
+        # ★ プレビュー画像を小さめに（横幅 350px くらい）
+        st.image(uploaded, caption=uploaded.name, width=350)
 
         # ちょっと余白
         st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
 
-        # ボタンの見た目を調整（丸く大きく）
+        # ★ ボタンの見た目を調整（IDではなく、stButton 全体に当てる）
         st.markdown("""
             <style>
-            div.stButton > button#round_big_run {
-                font-size: 22px !important;
-                padding: 20px 40px !important;
+            div.stButton > button {
+                font-size: 24px !important;
+                padding: 18px 48px !important;
                 border-radius: 999px !important;
                 background-color: #2563EB !important;
                 color: white !important;
                 border: none !important;
-                box-shadow: 0px 4px 12px rgba(0,0,0,0.2);
+                box-shadow: 0px 4px 12px rgba(0,0,0,0.25);
                 display: block;
                 margin: 0 auto;  /* 中央寄せ */
             }
-            div.stButton > button#round_big_run:hover {
+            div.stButton > button:hover {
                 background-color: #1D4ED8 !important;
                 transform: scale(1.05);
             }
@@ -461,7 +461,7 @@ def render_ocr_tab():
 
         # 実行ボタン（画像の下）
         if st.button("実行", key="round_big_run"):
-            # st.image で読まれている可能性があるので念のため先頭に戻す
+            # st.image で一度読んでいるので先頭に戻す
             uploaded.seek(0)
             image_bytes = uploaded.read()
 
@@ -479,6 +479,7 @@ def render_ocr_tab():
             )
             st.session_state.records.insert(0, rec)
             save_to_blob_csv(rec)
+
 
 
 
