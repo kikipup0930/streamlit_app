@@ -432,53 +432,58 @@ def render_ocr_tab():
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
 
     if uploaded is not None:
-        # ★ プレビュー画像を小さめに（横幅 350px くらい）
-        st.image(uploaded, caption=uploaded.name, width=350)
+        # ───────── ここから中央寄せレイアウト ─────────
+        left, center, right = st.columns([1, 2, 1])
 
-        # ちょっと余白
-        st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
+        with center:
+            # プレビュー画像（中央）
+            st.image(uploaded, caption=uploaded.name, width=350)
 
-        # ★ ボタンの見た目を調整（IDではなく、stButton 全体に当てる）
-        st.markdown("""
-            <style>
-            div.stButton > button {
-                font-size: 24px !important;
-                padding: 18px 48px !important;
-                border-radius: 999px !important;
-                background-color: #2563EB !important;
-                color: white !important;
-                border: none !important;
-                box-shadow: 0px 4px 12px rgba(0,0,0,0.25);
-                display: block;
-                margin: 0 auto;  /* 中央寄せ */
-            }
-            div.stButton > button:hover {
-                background-color: #1D4ED8 !important;
-                transform: scale(1.05);
-            }
-            </style>
-        """, unsafe_allow_html=True)
+            # ちょっと余白
+            st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
 
-        # 実行ボタン（画像の下）
-        if st.button("実行", key="round_big_run"):
-            # st.image で一度読んでいるので先頭に戻す
-            uploaded.seek(0)
-            image_bytes = uploaded.read()
+            # ボタンの見た目を調整
+            st.markdown("""
+                <style>
+                div.stButton > button {
+                    font-size: 24px !important;
+                    padding: 18px 48px !important;
+                    border-radius: 999px !important;
+                    background-color: #2563EB !important;
+                    color: white !important;
+                    border: none !important;
+                    box-shadow: 0px 4px 12px rgba(0,0,0,0.25);
+                    display: block;
+                    margin: 0 auto;  /* カラムの中で中央寄せ */
+                }
+                div.stButton > button:hover {
+                    background-color: #1D4ED8 !important;
+                    transform: scale(1.05);
+                }
+                </style>
+            """, unsafe_allow_html=True)
 
-            text = run_azure_ocr(image_bytes)
-            summary = run_azure_summary(text)
+            # 実行ボタン（画像の真下・中央）
+            if st.button("実行", key="round_big_run"):
+                # st.image で一度読んでいるので先頭に戻す
+                uploaded.seek(0)
+                image_bytes = uploaded.read()
 
-            rec = OcrRecord(
-                id=str(uuid.uuid4()),
-                created_at=_now_iso(),
-                filename=uploaded.name,
-                text=text,
-                summary=summary,
-                subject=subject,
-                meta={"size": len(image_bytes)},
-            )
-            st.session_state.records.insert(0, rec)
-            save_to_blob_csv(rec)
+                text = run_azure_ocr(image_bytes)
+                summary = run_azure_summary(text)
+
+                rec = OcrRecord(
+                    id=str(uuid.uuid4()),
+                    created_at=_now_iso(),
+                    filename=uploaded.name,
+                    text=text,
+                    summary=summary,
+                    subject=subject,
+                    meta={"size": len(image_bytes)},
+                )
+                st.session_state.records.insert(0, rec)
+                save_to_blob_csv(rec)
+        # ───────── ここまで中央寄せレイアウト ─────────
 
 
 
