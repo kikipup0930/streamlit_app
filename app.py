@@ -447,7 +447,7 @@ def render_ocr_tab():
         # =============================
         # ② 実行ボタンの位置調整（ボタン専用カラム）
         # =============================
-        btn_left, btn_center, btn_right = st.columns([3, 1, 3])
+        btn_left, btn_center, btn_right = st.columns([5, 1, 4])
         # ↑ ここを調整するだけでボタン位置を変えられる
         # 例：中央寄りは [2,1,2]　右寄りは [4,1,1]
 
