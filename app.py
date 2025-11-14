@@ -432,17 +432,26 @@ def render_ocr_tab():
     uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
 
     if uploaded is not None:
-        # ───────── ここから中央寄せレイアウト ─────────
-        left, center, right = st.columns([3, 2, 3])
 
-        with center:
-            # プレビュー画像（中央）
+        # =============================
+        # ① プレビュー画像の位置調整（画像専用カラム）
+        # =============================
+        img_left, img_center, img_right = st.columns([1, 2, 1])
+
+        with img_center:
             st.image(uploaded, caption=uploaded.name, width=350)
 
-            # ちょっと余白
-            st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
+        # 余白
+        st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
 
-            # ボタンの見た目を調整
+        # =============================
+        # ② 実行ボタンの位置調整（ボタン専用カラム）
+        # =============================
+        btn_left, btn_center, btn_right = st.columns([2, 1, 3])
+        # ↑ ここを調整するだけでボタン位置を変えられる
+        # 例：中央寄りは [2,1,2]　右寄りは [4,1,1]
+
+        with btn_center:
             st.markdown("""
                 <style>
                 div.stButton > button {
@@ -453,8 +462,6 @@ def render_ocr_tab():
                     color: white !important;
                     border: none !important;
                     box-shadow: 0px 4px 12px rgba(0,0,0,0.25);
-                    display: block;
-                    margin: 0 auto;  /* カラムの中で中央寄せ */
                 }
                 div.stButton > button:hover {
                     background-color: #1D4ED8 !important;
@@ -463,9 +470,7 @@ def render_ocr_tab():
                 </style>
             """, unsafe_allow_html=True)
 
-            # 実行ボタン（画像の真下・中央）
             if st.button("実行", key="round_big_run"):
-                # st.image で一度読んでいるので先頭に戻す
                 uploaded.seek(0)
                 image_bytes = uploaded.read()
 
@@ -483,7 +488,7 @@ def render_ocr_tab():
                 )
                 st.session_state.records.insert(0, rec)
                 save_to_blob_csv(rec)
-        # ───────── ここまで中央寄せレイアウト ─────────
+
 
 
 
