@@ -436,7 +436,7 @@ def render_ocr_tab():
         # =============================
         # ① プレビュー画像の位置調整（画像専用カラム）
         # =============================
-        img_left, img_center, img_right = st.columns([1.25, 2, 1])
+        img_left, img_center, img_right = st.columns([1.125, 2, 1])
 
         with img_center:
             st.image(uploaded, caption=uploaded.name, width=350)
