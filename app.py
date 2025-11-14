@@ -448,8 +448,6 @@ def render_ocr_tab():
         # ② 実行ボタンの位置調整（ボタン専用カラム）
         # =============================
         btn_left, btn_center, btn_right = st.columns([2.5, 1, 3])
-        # ↑ ここを調整するだけでボタン位置を変えられる
-        # 例：中央寄りは [2,1,2]　右寄りは [4,1,1]
 
         with btn_center:
             st.markdown("""
@@ -633,6 +631,15 @@ def main():
 
     st.set_page_config(page_title=APP_TITLE, layout="wide")
     inject_global_css()
+    st.markdown("""
+<style>
+.tab-bg {
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 12px;
+}
+</style>
+""", unsafe_allow_html=True)
     render_header(APP_TITLE)
 
     # 左サイドバー
@@ -643,16 +650,26 @@ def main():
 
     # --- 各タブ ---
     with tab_ocr:
+        st.markdown("<div class='tab-bg' style='background:#E8F0FE;'>", unsafe_allow_html=True)
         render_ocr_tab()
+        st.markdown("</div>", unsafe_allow_html=True)
 
     with tab_hist:
+        st.markdown("<div class='tab-bg' style='background:#C5D9FD;'>", unsafe_allow_html=True)
         render_history(filters)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     with tab_progress:
+        st.markdown("<div class='tab-bg' style='background:#A6C5FC;'>", unsafe_allow_html=True)
         render_progress_chart()
+        st.markdown("</div>", unsafe_allow_html=True)
+
 
     with tab_review:
-        st.subheader("復習（科目別）")
+        st.markdown("<div class='tab-bg' style='background:#8BB3FB;'>", unsafe_allow_html=True)
+        render_review_content()   # ← あなたの復習タブ関数に置換
+        st.markdown("</div>", unsafe_allow_html=True)
+
 
         # ここから下は必ず tab_review の“中”に置く
         records = st.session_state.records
