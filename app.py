@@ -415,6 +415,97 @@ def generate_questions_for_topic(rec, topic: str) -> list[dict]:
         qs.append(_make_cloze_question(sent, topic))
     qs.append({"type":"SHORT","q": f"『{topic}』の要点を20〜40文字で説明せよ。","answer": f"{topic}の定義や特徴を本文から要約","ex":"自分の言葉で簡潔に"})
     return qs[:3]
+def render_review_tab():
+    st.markdown("### 復習（科目別）")
+
+    # セッションに記録がない場合
+    records = st.session_state.records
+    if not records:
+        st.info("まだデータがありません。OCRタブから記録を追加してください。")
+        return
+
+    # 科目一覧を作成
+    subjects = sorted({get_subject(r) for r in records})
+    subject = st.selectbox("科目を選択", subjects)
+
+    # 選んだ科目だけに絞る
+    subject_records = [r for r in records if get_subject(r) == subject]
+    if not subject_records:
+        st.info("この科目の記録がまだありません。")
+        return
+
+    st.caption(f"{subject} の記録件数: {len(subject_records)}件")
+
+    # 科目内の頻出トピックを取得（弱点も加味）
+    topics_with_score = collect_topics_for_subject(subject_records)
+    if not topics_with_score:
+        st.info("この科目から復習用トピックが見つかりませんでした。要約付きのデータを増やしてください。")
+        return
+
+    # 上位10件くらいから選べるようにする
+    top = topics_with_score[:10]
+    topic_index = st.selectbox(
+        "復習したいトピックを選んでください",
+        options=list(range(len(top))),
+        format_func=lambda i: f"{top[i][0]}（スコア {top[i][1]:.1f}）",
+    )
+    topic = top[topic_index][0]
+    st.write(f"選択中のトピック：**{topic}**")
+
+    if st.button("このトピックで問題を作る"):
+        # この科目のテキスト・要約をひとまとめにした「仮レコード」を作成
+        summary_all = []
+        text_all = []
+        for rec in subject_records:
+            s = getattr(rec, "summary", "") or (rec.get("summary") if isinstance(rec, dict) else "")
+            t = getattr(rec, "text", "")    or (rec.get("text")    if isinstance(rec, dict) else "")
+            if s:
+                summary_all.append(s)
+            if t:
+                text_all.append(t)
+
+        pseudo_rec = {
+            "summary": "\n".join(summary_all),
+            "text": "\n".join(text_all),
+        }
+
+        # 既存のユーティリティで問題を生成（○×／穴埋め／短答の3問）
+        questions = generate_questions_for_topic(pseudo_rec, topic)
+        if not questions:
+            st.warning("このトピックから問題を作れませんでした。別のトピックを選んでください。")
+            return
+
+        st.success("復習問題を生成しました。")
+
+        review_key = f"{subject}:{topic}"
+        today = dt.date.today()
+
+        for i, q in enumerate(questions):
+            st.markdown(f"#### Q{i+1}. {q['q']}")
+            with st.expander("答えを見る"):
+                st.markdown(f"**答え**：{q['answer']}")
+                if q.get("ex"):
+                    st.markdown(f"**解説**：{q['ex']}")
+
+            # 理解度ボタン（SM-2 っぽい復習間隔を更新）
+            cols = st.columns(4)
+            labels = [
+                ("よくわからない", 1),
+                ("難しい",       2),
+                ("だいたいOK",   4),
+                ("完璧！",       5),
+            ]
+            for col, (label, score) in zip(cols, labels):
+                if col.button(label, key=f"{review_key}-{i}-{score}"):
+                    _update_review(review_key, score, today)
+                    st.info(f"{topic} の復習結果を記録しました（{label}）")
+
+        # 次回おすすめ復習日を表示（_learn_state は既存の関数）
+        state = _learn_state(review_key)
+        next_due = state.get("next_due")
+        if next_due:
+            st.caption(f"このトピックの次回おすすめ復習日：{next_due}")
+
 
 def render_ocr_tab():
     st.markdown("### OCR")
@@ -689,8 +780,8 @@ div[data-testid="stTabs"] button:hover {
 
     # --- 復習タブ ---
     with tab_review:
-        st.subheader("復習（科目別）")
-        
+        render_review_tab()
+
 if __name__ == "__main__":
     main()
 
