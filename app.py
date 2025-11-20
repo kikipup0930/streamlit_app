@@ -744,7 +744,7 @@ def render_ocr_tab():
                     filename=uploaded.name,
                     text=text,
                     summary=summary,
-                    subject=selected_subject,
+                    subject=subject,  # ← ここを subject にする
                     meta={"size": len(image_bytes)},
                 )
 
