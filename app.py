@@ -228,6 +228,8 @@ def run_azure_quiz(text: str, subject: str, num_questions: int = 3) -> list[dict
     """Azure OpenAI で4択クイズを生成する"""
 
     import json
+    num = st.slider("問題数", 3, 10, 3)
+
 
     if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_KEY or not AZURE_OPENAI_DEPLOYMENT:
         # 設定されてない場合は何も返さない
@@ -524,66 +526,27 @@ def _make_cloze_question(sentence: str, topic: str) -> dict:
     return {"type":"CLOZE","q": f"空欄を埋めよ: {sentence.replace(topic,'____')}",
             "answer": topic, "ex": f"ヒント: {hint}"}
 
-def generate_questions_for_topic(record, subject):
-
-    import json
-
-    summary = record.get("summary", "")
-    text = record.get("text", "")
-
-    base = summary if summary else text
-    if not base:
-        return []
-
-    system = (
-        "あなたは高校生向けの復習問題を作る家庭教師AIです。"
-        "与えられたテキストから、理解度を確認するための４択クイズ問題を3問作ってください。"
-        "問題文と正答、そして誤答の選択肢を3つ必ず作ってください。"
-        "誤答は実際にありそうだが間違っている内容にしてください。"
-        "全ての出力は必ず JSON の配列形式で返してください。"
-        "各要素は { 'q': 問題文, 'correct': 正答, 'choices': [選択肢4つ], 'ex': 解説 } の形にしてください。"
-        "choices の配列は正答を含む4つをランダムな順番で返してください。"
-    )
-
-    user = (
-        f"科目: {subject}\n\n"
-        "以下の内容から4択問題を3問作ってください：\n\n"
-        f"{base}"
-    )
-
-    try:
-        resp = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=0.7,
-            max_tokens=800,
-        )
-        content = resp.choices[0].message.content
-
-        data = json.loads(content)
-        return data
-
-    except Exception as e:
-        print("Error:", e)
-        return []
-
 
 def render_review_tab():
     st.markdown("### 復習（科目別）")
+
+    # --- セッション初期化 ---
+    if "quiz_questions" not in st.session_state:
+        st.session_state.quiz_questions = []
+    if "quiz_results" not in st.session_state:
+        # { 問題番号: { "user_choice": str, "correct": bool } }
+        st.session_state.quiz_results = {}
 
     records: List[OcrRecord] = st.session_state.records
     if not records:
         st.info("まだデータがありません。OCRタブから記録を追加してください。")
         return
 
-    # 科目一覧を生成
+    # 科目一覧
     subjects = sorted({get_subject(r) for r in records})
     subject = st.selectbox("科目を選択", subjects)
 
-    # 選んだ科目のレコードだけ抽出
+    # 選んだ科目のレコード
     subject_records = [r for r in records if get_subject(r) == subject]
     if not subject_records:
         st.info("この科目の記録がありません。")
@@ -591,12 +554,20 @@ def render_review_tab():
 
     st.caption(f"{subject} の記録件数: {len(subject_records)}件")
 
-    # ボタン押下でクイズ生成
+    # 問題数（お好みで 3〜10 にしてもOK）
+    num_questions = 3
+    # num_questions = st.slider("出題数", 3, 10, 3)
+
+    # --- クイズ生成ボタン ---
     if st.button("この科目から4択クイズを作る"):
-        # 要約とテキストを全部つなげる
         texts = []
         for rec in subject_records:
-            s = getattr(rec, "summary", "") or (rec.meta.get("summary") if hasattr(rec, "meta") and isinstance(rec.meta, dict) else "")
+            # 要約 or テキスト
+            s = getattr(rec, "summary", "") or (
+                rec.meta.get("summary")
+                if hasattr(rec, "meta") and isinstance(rec.meta, dict)
+                else ""
+            )
             t = getattr(rec, "text", "") or ""
             if s:
                 texts.append(s)
@@ -608,20 +579,25 @@ def render_review_tab():
         else:
             joined = "\n\n".join(texts)
             with st.spinner("問題を生成中..."):
-                qs = run_azure_quiz(joined, subject, num_questions=3)
-            st.session_state["quiz_questions"] = qs
+                qs = run_azure_quiz(joined, subject, num_questions=num_questions)
 
-    # ここから下は「生成済みクイズの表示」
+            if not qs:
+                st.warning("問題を生成できませんでした。")
+            else:
+                st.session_state.quiz_questions = qs
+                st.session_state.quiz_results = {}  # 前回の結果リセット
+                st.success("復習問題を生成しました！")
+
     questions = st.session_state.get("quiz_questions", [])
     if not questions:
         return
 
     st.write("---")
 
+    # --- 各問題の表示＆採点 ---
     for i, q in enumerate(questions):
         st.markdown(f"#### Q{i+1}. {q['q']}")
 
-        # ラジオボタンで4択
         choice = st.radio(
             "選択肢を選んでください",
             q["choices"],
@@ -629,17 +605,54 @@ def render_review_tab():
             key=f"quiz_choice_{i}",
         )
 
-        # 問題ごとに「答えをチェック」
         if st.button("答えをチェック", key=f"quiz_check_{i}"):
             if not choice:
                 st.warning("まず選択肢を選んでください。")
-            elif choice == q["correct"]:
-                st.success(f"正解！ 🎉（正解：{q['correct']}）")
             else:
-                st.error(f"不正解…（正解：{q['correct']}）")
+                is_correct = (choice == q["correct"])
+                # 結果を保存
+                st.session_state.quiz_results[i] = {
+                    "user_choice": choice,
+                    "correct": is_correct,
+                }
 
-            if q.get("ex"):
-                st.info(f"解説：{q['ex']}")
+                if is_correct:
+                    st.success(f"正解！ 🎉（正解：{q['correct']}）")
+                else:
+                    st.error(f"不正解…（正解：{q['correct']}）")
+
+                if q.get("ex"):
+                    st.info(f"解説：{q['ex']}")
+
+    # --- スコアサマリー ---
+    results = st.session_state.quiz_results
+    if results:
+        st.write("---")
+        total = len(questions)
+        answered = len(results)
+        correct_count = sum(1 for r in results.values() if r["correct"])
+        rate = (correct_count / total) * 100 if total > 0 else 0
+
+        st.markdown(
+            f"### 結果まとめ\n"
+            f"- 回答済み：**{answered} / {total}問**\n"
+            f"- 正解数：**{correct_count}問**\n"
+            f"- 正答率：**{rate:.0f}%**"
+        )
+
+        # 一言コメント（簡易ルール）
+        if answered < total:
+            st.caption("※ まだ解いていない問題があります。全部解くとより正確に実力がわかります。")
+        else:
+            if rate == 100:
+                st.success("すごい！全問正解です👏 この単元はかなり仕上がっています。")
+            elif rate >= 70:
+                st.info("いい感じです！あと少し復習すれば完璧が狙えます💪")
+            elif rate >= 40:
+                st.warning("半分くらいは取れています。間違えた問題を中心にもう一度見直してみましょう。")
+            else:
+                st.error("今回はちょっと難しかったかも…。解説を読みながら、ゆっくり復習してみましょう。")
+
 
 
 
