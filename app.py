@@ -650,70 +650,94 @@ def render_ocr_tab():
     if "subjects" not in st.session_state or not st.session_state["subjects"]:
         st.session_state["subjects"] = ["未分類"]
 
+    # 新しい科目の追加
     new_subject = st.text_input("科目を入力（新しい科目も追加可能）")
     if new_subject and new_subject not in st.session_state["subjects"]:
         st.session_state["subjects"].append(new_subject)
 
-    subject = st.selectbox("科目を選択", st.session_state["subjects"], index=0)
-
-uploaded = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
-
-if uploaded is not None:
-
-    # =============================
-    # ① プレビュー画像の位置調整（画像専用カラム）
-    # =============================
-    img_left, img_center, img_right = st.columns([1.125, 2, 1])
-
-    with img_center:
-        st.image(uploaded, caption=uploaded.name, width=350)
-
-    # 余白
-    st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
-
-    # 実行ボタン（※ ここから下も全部 if uploaded の中にあることを確認）
-    st.markdown(
-        """
-        <div style="text-align: center; margin-top: 16px;">
-            <style>
-            div.stButton > button:first-child {
-                font-size: 24px !important;
-                padding: 18px 48px !important;
-                border-radius: 999px !important;
-                background-color: #2563EB !important;
-                color: white !important;
-                border: none !important;
-                box-shadow: 0px 4px 12px rgba(0,0,0,0.25);
-            }
-            div.stButton > button:hover {
-                background-color: #1D4ED8 !important;
-                transform: scale(1.05);
-            }
-            </style>
-        """,
-        unsafe_allow_html=True,
+    # ★ ここで科目を選択（selected_subject という名前に変更）
+    selected_subject = st.selectbox(
+        "科目を選択",
+        st.session_state["subjects"],
+        index=0
     )
 
-    if st.button("実行", key="round_big_run"):
-        # ★ ここは seek(0) なしでOK ★
-        image_bytes = uploaded.read()
+    # 画像アップロード
+    uploaded = st.file_uploader(
+        "画像をアップロード",
+        type=["png", "jpg", "jpeg", "webp"],
+    )
 
-        text = run_azure_ocr(image_bytes)
-        summary = run_azure_summary(text)
+    if uploaded is not None:
+        # =============================
+        # ① プレビュー画像の位置調整（画像専用カラム）
+        # =============================
+        img_left, img_center, img_right = st.columns([1.125, 2, 1])
 
-        rec = OcrRecord(
-            id=str(uuid.uuid4()),
-            created_at=_now_iso(),
-            filename=uploaded.name,
-            text=text,
-            summary=summary,
-            subject=subject,
-            meta={"size": len(image_bytes)},
-        )
-        st.session_state.records.insert(0, rec)
-        save_to_blob_csv(rec)
-else:
-    st.info("まず画像ファイルをアップロードしてください。")
+        with img_center:
+            st.image(uploaded, caption=uploaded.name, width=350)
+
+        # 余白
+        st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
+
+        # =============================
+        # ② 実行ボタンの位置調整（ボタン専用カラム）
+        # =============================
+        btn_left, btn_center, btn_right = st.columns([2.5, 1, 3])
+
+        with btn_center:
+            st.markdown(
+                """
+                <style>
+                div.stButton > button {
+                    font-size: 24px !important;
+                    padding: 18px 48px !important;
+                    border-radius: 999px !important;
+                    background-color: #2563EB !important;
+                    color: white !important;
+                    border: none !important;
+                    box-shadow: 0px 4px 12px rgba(0,0,0,0.25);
+                }
+                div.stButton > button:hover {
+                    background-color: #1D4ED8 !important;
+                    transform: scale(1.05);
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            if st.button("実行", key="round_big_run"):
+                # ファイルをバイト列として読み込み
+                # uploaded.seek(0) はなくてもOKなので削っています
+                image_bytes = uploaded.read()
+
+                # OCR と 要約
+                text = run_azure_ocr(image_bytes)
+                summary = run_azure_summary(text)
+
+                # OcrRecord の作成（★ 科目は selected_subject を使う）
+                rec = OcrRecord(
+                    id=str(uuid.uuid4()),
+                    created_at=_now_iso(),
+                    filename=uploaded.name,
+                    text=text,
+                    summary=summary,
+                    subject=selected_subject,
+                    meta={"size": len(image_bytes)},
+                )
+
+                # セッションの履歴に追加
+                st.session_state.records.insert(0, rec)
+
+                # Azure Blob Storage の CSV に追記保存
+                save_to_blob_csv(rec)
+
+                st.success("OCRと要約が完了し、履歴とAzure Blobに保存しました！")
+
+    else:
+        st.info("まず画像ファイルをアップロードしてください。")
+
 
 
 
