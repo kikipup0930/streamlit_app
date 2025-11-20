@@ -406,105 +406,124 @@ def _make_cloze_question(sentence: str, topic: str) -> dict:
     return {"type":"CLOZE","q": f"空欄を埋めよ: {sentence.replace(topic,'____')}",
             "answer": topic, "ex": f"ヒント: {hint}"}
 
-def generate_questions_for_topic(rec, topic: str) -> list[dict]:
-    text = (getattr(rec,"summary","") or "") + "\n" + (getattr(rec,"text","") or "")
-    qs = []
-    qs.append(_make_tf_question(topic))
-    sent = _pick_sentence(text, topic)
-    if topic in sent:
-        qs.append(_make_cloze_question(sent, topic))
-    qs.append({"type":"SHORT","q": f"『{topic}』の要点を20〜40文字で説明せよ。","answer": f"{topic}の定義や特徴を本文から要約","ex":"自分の言葉で簡潔に"})
-    return qs[:3]
+def generate_questions_for_topic(record, subject):
+
+    import json
+
+    summary = record.get("summary", "")
+    text = record.get("text", "")
+
+    base = summary if summary else text
+    if not base:
+        return []
+
+    system = (
+        "あなたは高校生向けの復習問題を作る家庭教師AIです。"
+        "与えられたテキストから、理解度を確認するための４択クイズ問題を3問作ってください。"
+        "問題文と正答、そして誤答の選択肢を3つ必ず作ってください。"
+        "誤答は実際にありそうだが間違っている内容にしてください。"
+        "全ての出力は必ず JSON の配列形式で返してください。"
+        "各要素は { 'q': 問題文, 'correct': 正答, 'choices': [選択肢4つ], 'ex': 解説 } の形にしてください。"
+        "choices の配列は正答を含む4つをランダムな順番で返してください。"
+    )
+
+    user = (
+        f"科目: {subject}\n\n"
+        "以下の内容から4択問題を3問作ってください：\n\n"
+        f"{base}"
+    )
+
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            temperature=0.7,
+            max_tokens=800,
+        )
+        content = resp.choices[0].message.content
+
+        data = json.loads(content)
+        return data
+
+    except Exception as e:
+        print("Error:", e)
+        return []
+
+
 def render_review_tab():
     st.markdown("### 復習（科目別）")
 
-    # セッションに記録がない場合
     records = st.session_state.records
     if not records:
         st.info("まだデータがありません。OCRタブから記録を追加してください。")
         return
 
-    # 科目一覧を作成
     subjects = sorted({get_subject(r) for r in records})
     subject = st.selectbox("科目を選択", subjects)
 
-    # 選んだ科目だけに絞る
     subject_records = [r for r in records if get_subject(r) == subject]
     if not subject_records:
-        st.info("この科目の記録がまだありません。")
+        st.info("この科目の記録がありません。")
         return
 
     st.caption(f"{subject} の記録件数: {len(subject_records)}件")
 
-    # 科目内の頻出トピックを取得（弱点も加味）
-    topics_with_score = collect_topics_for_subject(subject_records)
-    if not topics_with_score:
-        st.info("この科目から復習用トピックが見つかりませんでした。要約付きのデータを増やしてください。")
-        return
-
-    # 上位10件くらいから選べるようにする
-    top = topics_with_score[:10]
-    topic_index = st.selectbox(
-        "復習したいトピックを選んでください",
-        options=list(range(len(top))),
-        format_func=lambda i: f"{top[i][0]}（スコア {top[i][1]:.1f}）",
-    )
-    topic = top[topic_index][0]
-    st.write(f"選択中のトピック：**{topic}**")
-
-    if st.button("このトピックで問題を作る"):
-        # この科目のテキスト・要約をひとまとめにした「仮レコード」を作成
+    if st.button("この科目から復習問題を作る"):
         summary_all = []
         text_all = []
+
         for rec in subject_records:
             s = getattr(rec, "summary", "") or (rec.get("summary") if isinstance(rec, dict) else "")
             t = getattr(rec, "text", "")    or (rec.get("text")    if isinstance(rec, dict) else "")
-            if s:
-                summary_all.append(s)
-            if t:
-                text_all.append(t)
+            if s: summary_all.append(s)
+            if t: text_all.append(t)
 
         pseudo_rec = {
             "summary": "\n".join(summary_all),
             "text": "\n".join(text_all),
         }
 
-        # 既存のユーティリティで問題を生成（○×／穴埋め／短答の3問）
-        questions = generate_questions_for_topic(pseudo_rec, topic)
+        questions = generate_questions_for_topic(pseudo_rec, subject)
+
         if not questions:
-            st.warning("このトピックから問題を作れませんでした。別のトピックを選んでください。")
+            st.warning("問題を生成できませんでした。")
             return
 
-        st.success("復習問題を生成しました。")
+        # 保存
+        st.session_state.quiz_questions = questions
 
-        review_key = f"{subject}:{topic}"
-        today = dt.date.today()
+    # ===== 出題部分 =====
+    questions = st.session_state.get("quiz_questions")
+    if not questions:
+        return
 
-        for i, q in enumerate(questions):
-            st.markdown(f"#### Q{i+1}. {q['q']}")
-            with st.expander("答えを見る"):
-                st.markdown(f"**答え**：{q['answer']}")
-                if q.get("ex"):
-                    st.markdown(f"**解説**：{q['ex']}")
+    st.write("---")
 
-            # 理解度ボタン（SM-2 っぽい復習間隔を更新）
-            cols = st.columns(4)
-            labels = [
-                ("よくわからない", 1),
-                ("難しい",       2),
-                ("だいたいOK",   4),
-                ("完璧！",       5),
-            ]
-            for col, (label, score) in zip(cols, labels):
-                if col.button(label, key=f"{review_key}-{i}-{score}"):
-                    _update_review(review_key, score, today)
-                    st.info(f"{topic} の復習結果を記録しました（{label}）")
+    for i, q in enumerate(questions):
+        st.markdown(f"#### Q{i+1}. {q['q']}")
 
-        # 次回おすすめ復習日を表示（_learn_state は既存の関数）
-        state = _learn_state(review_key)
-        next_due = state.get("next_due")
-        if next_due:
-            st.caption(f"このトピックの次回おすすめ復習日：{next_due}")
+        # 選択肢
+        choice = st.radio(
+            "選択肢",
+            q["choices"],
+            index=None,
+            key=f"q_{i}_choice"
+        )
+
+        # チェックボタン
+        if st.button("答えをチェック", key=f"check_{i}"):
+            if not choice:
+                st.warning("選択肢を選んでください。")
+            elif choice == q["correct"]:
+                st.success(f"正解！ 🎉（正答：{q['correct']}）")
+            else:
+                st.error(f"不正解…（正答：{q['correct']}）")
+
+            st.info(f"解説：{q.get('ex', '解説なし')}")
+
 
 
 def render_ocr_tab():
