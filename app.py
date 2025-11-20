@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import List, Dict, Any
 from ui import inject_global_css, render_header, metric_card
 from collections import Counter, defaultdict
+from utils import save_to_azure_blob_csv_append
 from utils import (
     run_ocr,
     summarize_text,
@@ -355,7 +356,6 @@ from utils import save_to_azure_blob_csv_append  # ← ファイル先頭で必�
 def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.csv") -> None:
     """utils.py の関数を使って Azure Blob Storage 上の CSV に追記保存する"""
 
-    # 追記したい1行分のデータを dict にする
     row = {
         "id": record.id,
         "created_at": record.created_at,
@@ -366,11 +366,10 @@ def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.cs
     }
 
     try:
-        # utils.py 側の共通関数に丸投げ
         save_to_azure_blob_csv_append(blob_name, row)
     except Exception as e:
-        # 失敗してもアプリ全体が落ちないようにログだけ出す
         print("[save_to_blob_csv] error:", e)
+
 
 
 # =====================
