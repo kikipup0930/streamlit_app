@@ -21,9 +21,15 @@ import math  # 復習間隔の計算で使用
 import re    # トピック抽出で使用（既にあれば重複OK）
 from dataclasses import dataclass
 from typing import List, Dict, Any
-from azure.storage.blob import BlobServiceClient, ContentSettings
 from ui import inject_global_css, render_header, metric_card
 from collections import Counter, defaultdict
+from utils import (
+    run_ocr,
+    summarize_text,
+    save_to_azure_blob_csv_append,
+    load_csv_from_blob,
+)
+
 
 
 import re
@@ -344,28 +350,13 @@ def run_azure_quiz(text: str, subject: str, num_questions: int = 3) -> list[dict
     return questions
 
 
+from utils import save_to_azure_blob_csv_append  # ← ファイル先頭で必ず import しておく
+
 def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.csv") -> None:
-    """Azure Blob Storage 上の CSV に追記保存する"""
-    if not AZURE_STORAGE_CONNECTION_STRING or not AZURE_BLOB_CONTAINER:
-        return
+    """utils.py の関数を使って Azure Blob Storage 上の CSV に追記保存する"""
 
-    bsc = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-    container = bsc.get_container_client(AZURE_BLOB_CONTAINER)
-    try:
-        container.create_container()
-    except Exception:
-        pass
-
-    # 1. 既存CSVをダウンロード
-    try:
-        blob_client = container.get_blob_client(blob_name)
-        stream = blob_client.download_blob()
-        existing = pd.read_csv(io.BytesIO(stream.readall()))
-    except Exception:
-        existing = pd.DataFrame(columns=["id", "created_at", "filename", "text", "summary", "subject"])
-
-    # 2. 新しい行を追加
-    new_row = {
+    # 追記したい1行分のデータを dict にする
+    row = {
         "id": record.id,
         "created_at": record.created_at,
         "filename": record.filename,
@@ -373,17 +364,14 @@ def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.cs
         "summary": record.summary,
         "subject": record.subject,
     }
-    updated = pd.concat([existing, pd.DataFrame([new_row])], ignore_index=True)
 
-    # 3. 丸ごとアップロード（上書き）
-    payload = updated.to_csv(index=False).encode("utf-8-sig")
-    content_settings = ContentSettings(content_type="text/csv; charset=utf-8")
-    container.upload_blob(
-        name=blob_name,
-        data=payload,
-        overwrite=True,
-        content_settings=content_settings,
-    )
+    try:
+        # utils.py 側の共通関数に丸投げ
+        save_to_azure_blob_csv_append(blob_name, row)
+    except Exception as e:
+        # 失敗してもアプリ全体が落ちないようにログだけ出す
+        print("[save_to_blob_csv] error:", e)
+
 
 # =====================
 # UI ヘルパ
@@ -617,9 +605,9 @@ def render_review_tab():
                 }
 
                 if is_correct:
-                    st.success(f"正解！ 🎉（正解：{q['correct']}）")
+                    st.success(f"正解！")
                 else:
-                    st.error(f"不正解…（正解：{q['correct']}）")
+                    st.error(f"不正解…")
 
                 if q.get("ex"):
                     st.info(f"解説：{q['ex']}")
@@ -708,24 +696,27 @@ def render_ocr_tab():
                 </style>
             """, unsafe_allow_html=True)
 
-            if st.button("実行", key="round_big_run"):
-                uploaded.seek(0)
-                image_bytes = uploaded.read()
+if st.button("実行", key="round_big_run"):
+    # utils.run_ocr の中で read() するので、ここでは read しない
+    uploaded.seek(0)
+    text = run_ocr(uploaded)          # ← utils.py の OCR
+    summary = summarize_text(text)    # ← utils.py の 要約
 
-                text = run_azure_ocr(image_bytes)
-                summary = run_azure_summary(text)
+    rec = OcrRecord(
+        id=str(uuid.uuid4()),
+        created_at=_now_iso(),
+        filename=uploaded.name,
+        text=text,
+        summary=summary,
+        subject=subject,
+        # サイズは bytes 長さではなく file_uploader の size でOK
+        meta={"size": getattr(uploaded, "size", None)},
+    )
 
-                rec = OcrRecord(
-                    id=str(uuid.uuid4()),
-                    created_at=_now_iso(),
-                    filename=uploaded.name,
-                    text=text,
-                    summary=summary,
-                    subject=subject,
-                    meta={"size": len(image_bytes)},
-                )
-                st.session_state.records.insert(0, rec)
-                save_to_blob_csv(rec)
+    st.session_state.records.insert(0, rec)
+
+    # ここは次のステップで utils に寄せる
+    save_to_blob_csv(rec)
 
 
 
