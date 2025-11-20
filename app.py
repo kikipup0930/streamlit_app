@@ -546,7 +546,12 @@ def render_review_tab():
 
     # 科目一覧
     subjects = sorted({get_subject(r) for r in records})
-    subject = st.selectbox("科目を選択", subjects)
+    subject = st.selectbox(
+        "科目を選択",
+        subjects,
+        key="review_subject_select",  # ← 追加
+    )
+    
 
     # 選んだ科目のレコード
     subject_records = [r for r in records if get_subject(r) == subject]
@@ -671,10 +676,11 @@ def render_ocr_tab():
         st.session_state["subjects"].append(new_subject)
 
     # ★ ここで科目を選択（selected_subject という名前に変更）
-    selected_subject = st.selectbox(
+    subject = st.selectbox(
         "科目を選択",
         st.session_state["subjects"],
-        index=0
+        index=0,
+        key="ocr_subject_select",  # ← 追加
     )
 
     # 画像アップロード
