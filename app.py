@@ -753,8 +753,87 @@ def render_ocr_tab():
 
                 # Azure Blob Storage の CSV に追記保存
                 save_to_blob_csv(rec)
+                # 完了アニメーション（中央に丸＋チェックがポンっと出る）
+                st.markdown(
+                    """
+                    <div class="ocr-done-wrapper">
+                    <div class="ocr-done-circle">
+                        <span class="ocr-done-check">✓</span>
+                    </div>
+                    <div class="ocr-done-text">保存完了！</div>
+                    </div>
 
-                st.success("OCRと要約が完了し、履歴とAzure Blobに保存しました！")
+                    <style>
+                    .ocr-done-wrapper {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        margin-top: 24px;
+                        animation: fadeInUp 0.6s ease-out;
+                    }
+
+                    .ocr-done-circle {
+                        width: 80px;
+                        height: 80px;
+                        border-radius: 999px;
+                        background: linear-gradient(135deg, #34D399, #22C55E);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        box-shadow: 0 8px 20px rgba(16, 185, 129, 0.6);
+                        animation: popIn 0.4s ease-out;
+                    }
+
+                    .ocr-done-check {
+                        color: #ffffff;
+                        font-size: 42px;
+                        font-weight: 700;
+                        transform: translateY(2px);
+                        animation: bounce 0.6s ease-out 0.1s both;
+                    }
+
+                    .ocr-done-text {
+                        margin-top: 12px;
+                        font-size: 18px;
+                        font-weight: 600;
+                        color: #166534;
+                    }
+
+                    @keyframes popIn {
+                        0% {
+                            transform: scale(0.4);
+                            opacity: 0;
+                        }
+                        70% {
+                            transform: scale(1.08);
+                            opacity: 1;
+                        }
+                        100% {
+                            transform: scale(1.0);
+                        }
+                    }
+
+                    @keyframes bounce {
+                        0%   { transform: translateY(-8px); }
+                        50%  { transform: translateY(2px);  }
+                        100% { transform: translateY(0);    }
+                    }
+
+                    @keyframes fadeInUp {
+                        0% {
+                            opacity: 0;
+                            transform: translateY(10px);
+                        }
+                        100% {
+                            opacity: 1;
+                            transform: translateY(0);
+                        }
+                    }
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
 
     else:
         st.info("まず画像ファイルをアップロードしてください。")
