@@ -223,6 +223,124 @@ def run_azure_summary(text: str) -> str:
         return data["choices"][0]["message"]["content"].strip()
     except Exception:
         return ""
+    
+def run_azure_quiz(text: str, subject: str, num_questions: int = 3) -> list[dict]:
+    """Azure OpenAI で4択クイズを生成する"""
+
+    import json
+
+    if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_KEY or not AZURE_OPENAI_DEPLOYMENT:
+        # 設定されてない場合は何も返さない
+        return []
+
+    # モデルのエンドポイント（要約と同じ形式）
+    url = (
+        AZURE_OPENAI_ENDPOINT.rstrip("/")
+        + f"/openai/deployments/{AZURE_OPENAI_DEPLOYMENT}/chat/completions"
+        + f"?api-version={AZURE_OPENAI_API_VERSION}"
+    )
+    headers = {
+        "api-key": AZURE_OPENAI_KEY,
+        "Content-Type": "application/json",
+    }
+
+    system_msg = (
+        "あなたは高校生向けの日本語の家庭教師です。"
+        "与えられたテキストから、内容理解を確認するための4択クイズ問題を作成してください。"
+        "すべての出力は必ず JSON 配列形式にしてください。"
+        "各要素は {\"q\", \"correct\", \"choices\", \"ex\"} をキーに持ちます。"
+        "q: 問題文, correct: 正解の選択肢文字列, choices: 正解を含む4つの選択肢リスト,"
+        "ex: 正解の簡単な日本語解説です。"
+        "choices の順番はランダムで構いません。"
+        "マークダウンや説明文は一切書かず、純粋な JSON だけを返してください。"
+    )
+
+    # 長すぎるとき用に一応切っておく
+    base_text = text[:4000]
+
+    user_msg = (
+        f"科目: {subject}\n"
+        f"問題数: {num_questions}\n\n"
+        "以下の内容から、高校生向けの4択クイズ問題を作ってください。\n\n"
+        f"{base_text}"
+    )
+
+    payload = {
+        "messages": [
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_msg},
+        ],
+        "temperature": 0.7,
+        "max_tokens": 800,
+    }
+
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"]
+    except Exception as e:
+        print("[run_azure_quiz] API error:", e)
+        return []
+
+    # コードブロックで返ってきた場合のガード
+    content = content.strip()
+    if content.startswith("```"):
+        lines = content.splitlines()
+        # 先頭の ``` or ```json を削る
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        # 末尾の ``` を削る
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        content = "\n".join(lines).strip()
+
+    try:
+        raw_questions = json.loads(content)
+    except Exception as e:
+        print("[run_azure_quiz] JSON parse error:", e)
+        print("RAW:", content[:300])
+        return []
+
+    # 念のため形式を整える
+    questions: list[dict] = []
+    for q in raw_questions[:num_questions]:
+        question = q.get("q") or q.get("question")
+        correct = q.get("correct") or q.get("answer")
+        choices = q.get("choices") or []
+        ex = q.get("ex") or q.get("explanation") or ""
+
+        if not question or not correct:
+            continue
+
+        # 正解が選択肢に含まれていなければ追加
+        if correct not in choices:
+            choices.append(correct)
+
+        # 重複を削って4つまでにする
+        seen = set()
+        uniq_choices = []
+        for c in choices:
+            if c not in seen:
+                seen.add(c)
+                uniq_choices.append(c)
+        uniq_choices = uniq_choices[:4]
+
+        # 4つ未満ならスキップ（ゆるくしたいならここは通してもOK）
+        if len(uniq_choices) < 2:
+            continue
+
+        questions.append(
+            {
+                "q": question,
+                "correct": correct,
+                "choices": uniq_choices,
+                "ex": ex,
+            }
+        )
+
+    return questions
+
 
 def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.csv") -> None:
     """Azure Blob Storage 上の CSV に追記保存する"""
@@ -456,14 +574,16 @@ def generate_questions_for_topic(record, subject):
 def render_review_tab():
     st.markdown("### 復習（科目別）")
 
-    records = st.session_state.records
+    records: List[OcrRecord] = st.session_state.records
     if not records:
         st.info("まだデータがありません。OCRタブから記録を追加してください。")
         return
 
+    # 科目一覧を生成
     subjects = sorted({get_subject(r) for r in records})
     subject = st.selectbox("科目を選択", subjects)
 
+    # 選んだ科目のレコードだけ抽出
     subject_records = [r for r in records if get_subject(r) == subject]
     if not subject_records:
         st.info("この科目の記録がありません。")
@@ -471,32 +591,28 @@ def render_review_tab():
 
     st.caption(f"{subject} の記録件数: {len(subject_records)}件")
 
-    if st.button("この科目から復習問題を作る"):
-        summary_all = []
-        text_all = []
-
+    # ボタン押下でクイズ生成
+    if st.button("この科目から4択クイズを作る"):
+        # 要約とテキストを全部つなげる
+        texts = []
         for rec in subject_records:
-            s = getattr(rec, "summary", "") or (rec.get("summary") if isinstance(rec, dict) else "")
-            t = getattr(rec, "text", "")    or (rec.get("text")    if isinstance(rec, dict) else "")
-            if s: summary_all.append(s)
-            if t: text_all.append(t)
+            s = getattr(rec, "summary", "") or (rec.meta.get("summary") if hasattr(rec, "meta") and isinstance(rec.meta, dict) else "")
+            t = getattr(rec, "text", "") or ""
+            if s:
+                texts.append(s)
+            elif t:
+                texts.append(t)
 
-        pseudo_rec = {
-            "summary": "\n".join(summary_all),
-            "text": "\n".join(text_all),
-        }
+        if not texts:
+            st.warning("この科目には要約やテキストがありません。")
+        else:
+            joined = "\n\n".join(texts)
+            with st.spinner("問題を生成中..."):
+                qs = run_azure_quiz(joined, subject, num_questions=3)
+            st.session_state["quiz_questions"] = qs
 
-        questions = generate_questions_for_topic(pseudo_rec, subject)
-
-        if not questions:
-            st.warning("問題を生成できませんでした。")
-            return
-
-        # 保存
-        st.session_state.quiz_questions = questions
-
-    # ===== 出題部分 =====
-    questions = st.session_state.get("quiz_questions")
+    # ここから下は「生成済みクイズの表示」
+    questions = st.session_state.get("quiz_questions", [])
     if not questions:
         return
 
@@ -505,24 +621,25 @@ def render_review_tab():
     for i, q in enumerate(questions):
         st.markdown(f"#### Q{i+1}. {q['q']}")
 
-        # 選択肢
+        # ラジオボタンで4択
         choice = st.radio(
-            "選択肢",
+            "選択肢を選んでください",
             q["choices"],
             index=None,
-            key=f"q_{i}_choice"
+            key=f"quiz_choice_{i}",
         )
 
-        # チェックボタン
-        if st.button("答えをチェック", key=f"check_{i}"):
+        # 問題ごとに「答えをチェック」
+        if st.button("答えをチェック", key=f"quiz_check_{i}"):
             if not choice:
-                st.warning("選択肢を選んでください。")
+                st.warning("まず選択肢を選んでください。")
             elif choice == q["correct"]:
-                st.success(f"正解！ 🎉（正答：{q['correct']}）")
+                st.success(f"正解！ 🎉（正解：{q['correct']}）")
             else:
-                st.error(f"不正解…（正答：{q['correct']}）")
+                st.error(f"不正解…（正解：{q['correct']}）")
 
-            st.info(f"解説：{q.get('ex', '解説なし')}")
+            if q.get("ex"):
+                st.info(f"解説：{q['ex']}")
 
 
 
