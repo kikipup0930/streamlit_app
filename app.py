@@ -137,6 +137,21 @@ AZURE_OPENAI_KEY = st.secrets.get("AZURE_OPENAI_API_KEY", "")
 AZURE_OPENAI_DEPLOYMENT = st.secrets.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-35-turbo")
 AZURE_OPENAI_API_VERSION = st.secrets.get("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
 
+# ===== utils.py が参照する環境変数にも同じ値を渡す =====
+import os
+
+os.environ["AZURE_CONNECTION_STRING"] = AZURE_STORAGE_CONNECTION_STRING or ""
+os.environ["AZURE_CONTAINER"] = AZURE_BLOB_CONTAINER or ""
+
+os.environ["AZURE_ENDPOINT"] = AZURE_CV_ENDPOINT or ""
+os.environ["AZURE_KEY"] = AZURE_CV_KEY or ""
+
+os.environ["AZURE_OPENAI_ENDPOINT"] = st.secrets.get("AZURE_OPENAI_ENDPOINT", "")
+os.environ["AZURE_OPENAI_API_KEY"] = st.secrets.get("AZURE_OPENAI_API_KEY", "")
+os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"] = st.secrets.get("AZURE_OPENAI_DEPLOYMENT_NAME", "")
+os.environ["AZURE_OPENAI_API_VERSION"] = st.secrets.get("AZURE_OPENAI_API_VERSION", "")
+
+
 # =====================
 # データモデル
 # =====================
