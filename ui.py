@@ -67,7 +67,7 @@ def inject_global_css():
         unsafe_allow_html=True,
     )
 
-def render_header(title: str, subtitle: str = "手書きノートOCR＋要約による自動復習生成"):
+def render_header(title: str,):
     st.markdown(
         f"""
         <div style="padding:22px 22px; border-radius:18px; background:linear-gradient(180deg,#f9f8f2,#f4f1e6);
