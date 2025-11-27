@@ -484,7 +484,7 @@ def render_history(filters: Dict[str, Any]):
 
     # --- カード描画（付箋風固定） ---
     for rec in filtered:
-        meta = f"作成日: {rec.created_at} ｜ ID: {rec.id}"
+        meta = f"科目: {rec.subject} ｜ 作成日: {rec.created_at} ｜ ID: {rec.id}"
         render_history_card(
             title=rec.filename,
             meta=meta,
