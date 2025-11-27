@@ -30,6 +30,38 @@ from utils import (
     save_to_azure_blob_csv_append,
     load_csv_from_blob,
 )
+from utils import load_csv_from_blob
+
+def load_records_from_blob(blob_name: str = "studyrecord_history.csv") -> list:
+    """Azure Blob 上の CSV を読み込み、OcrRecord のリストにして返す"""
+
+    try:
+        df = load_csv_from_blob(blob_name)
+    except Exception as e:
+        print("[load_records_from_blob] load error:", e)
+        return []
+
+    if df is None or df.empty:
+        return []
+
+    records = []
+    for _, row in df.iterrows():
+        try:
+            rec = OcrRecord(
+                id=row.get("id", ""),
+                created_at=row.get("created_at", ""),
+                filename=row.get("filename", ""),
+                text=row.get("text", ""),
+                summary=row.get("summary", ""),
+                subject=row.get("subject", "未分類"),
+                meta={},  # CSVに保存していないので空dictでOK
+            )
+            records.append(rec)
+        except Exception as e:
+            print("[load_records_from_blob] row convert error:", e)
+
+    return records
+
 
 
 
@@ -978,6 +1010,14 @@ def render_progress_chart():
 # メイン
 # =====================
 def main():
+
+        # 起動時に CSV 読み込み
+    if "records" not in st.session_state or not st.session_state.records:
+        blob_records = load_records_from_blob()
+        if blob_records:
+            st.session_state.records = blob_records
+
+
     # セッション初期化
     if "records" not in st.session_state:
         st.session_state.records: List[OcrRecord] = []
