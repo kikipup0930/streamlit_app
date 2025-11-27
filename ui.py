@@ -73,7 +73,6 @@ def render_header(title: str,):
         <div style="padding:22px 22px; border-radius:18px; background:linear-gradient(180deg,#f9f8f2,#f4f1e6);
                     border:1px solid #ece8da; box-shadow:0 12px 20px rgba(0,0,0,.05); margin-bottom:16px;">
           <div style="font-size:32px; font-weight:800; letter-spacing:.3px;">{title}</div>
-          <div style="color:#667085; margin-top:6px;">{subtitle}</div>
         </div>
         """,
         unsafe_allow_html=True,
