@@ -455,10 +455,23 @@ def copy_to_clipboard_button(label, text, key):
 
 def render_history(filters: Dict[str, Any]):
     st.markdown("### 履歴")
+
+    # ① まず全レコードを取得
     records: List[OcrRecord] = st.session_state.records
-    filtered = [r for r in records if matches_filters(
-        r, filters["q"], filters["period"], filters["subject_filter"]
-    )]
+
+    # ② created_at で「新しい順」にソート
+    records = sorted(
+        records,
+        key=lambda r: r.created_at,
+        reverse=True,  # ← ここがポイント（降順＝新しい→古い）
+    )
+
+    # ③ フィルタをかける
+    filtered = [
+        r for r in records
+        if matches_filters(r, filters["q"], filters["period"], filters["subject_filter"])
+    ]
+
 
     if not filtered:
         st.info("条件に合致する履歴はありません。")
@@ -512,17 +525,6 @@ def _tokenize(text: str) -> list[str]:
     toks = [t for t in _JA_TOKEN.findall(text)]
     return [t for t in toks if len(t) > 1 and t not in _STOP]
 
-# 科目内の頻出トピック（弱点度で重み付け）
-def collect_topics_for_subject(records: list) -> list[tuple[str, float]]:
-    bag = Counter()
-    for rec in records:
-        summary = getattr(rec, "summary", "") or (rec.get("summary") if isinstance(rec, dict) else "") or ""
-        text    = getattr(rec, "text", "")    or (rec.get("text")    if isinstance(rec, dict) else "") or ""
-        weak    = _weakness_score(summary + "\n" + text)
-        for t in _tokenize(summary + "\n" + text):
-            bag[t] += 1.0 + weak
-    return bag.most_common(50)
-
 # 学習状態（SM-2簡易）
 def _learn_state(rid: str) -> dict:
     st.session_state.setdefault("_learn_state", {})
@@ -541,24 +543,6 @@ def _update_review(rid: str, quality: int, today: dt.date):
     s["interval"] = interval
     s["next_due"] = today + dt.timedelta(days=interval)
     s["last"] = quality
-
-# かんたん問題生成（○×／穴埋め／短答）
-def _make_tf_question(topic: str) -> dict:
-    stmt_true  = f"{topic}は今回の学習内容と関連がある。"
-    stmt_false = f"{topic}は今回の学習内容と無関係である。"
-    is_true = (hash(topic) % 2 == 0)
-    return {"type":"TF","q": (stmt_true if is_true else stmt_false), "answer": ("○" if is_true else "×"), "ex": f"本文中で『{topic}』の扱い有無で判断。"}
-
-def _pick_sentence(text: str, topic: str) -> str:
-    for ln in text.splitlines():
-        if topic in ln and 5 <= len(ln) <= 120:
-            return ln.strip()
-    return (text[:120] + "…") if text else f"{topic} に関する説明文"
-
-def _make_cloze_question(sentence: str, topic: str) -> dict:
-    hint = topic[:1] + ("_" * max(2, len(topic)-1))
-    return {"type":"CLOZE","q": f"空欄を埋めよ: {sentence.replace(topic,'____')}",
-            "answer": topic, "ex": f"ヒント: {hint}"}
 
 
 def render_review_tab():
