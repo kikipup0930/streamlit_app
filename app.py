@@ -149,6 +149,13 @@ def render_history_card(*args, **kwargs):
     </div>
     """
     st.markdown(html_block, unsafe_allow_html=True)
+        # --- 削除ボタンを作成 ---
+    if st.button(f"削除", key=f"delete_quiz_{log['created_at']}"):
+        quiz_history = [h for h in quiz_history if h["created_at"] != log["created_at"]]
+        st.session_state.quiz_history = quiz_history
+        st.success("履歴を削除しました！")
+        st.experimental_rerun()
+
 
 
 
@@ -684,7 +691,7 @@ def render_review_tab():
                 st.info(f"解説：{q['ex']}")
 
     # --- まとめて採点 ---
-    if st.button("全部まとめて採点"):
+    if st.button("採点"):
         results = {}
         for i, q in enumerate(questions):
             choice = st.session_state.get(f"quiz_choice_{i}")
