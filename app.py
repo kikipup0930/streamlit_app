@@ -548,7 +548,7 @@ def render_history(filters: Dict[str, Any]):
                     if h["created_at"] != target_ts
                 ]
                 st.success("この復習履歴を削除しました。")
-                st.experimental_rerun()
+                st.rerun()
 
 
 
