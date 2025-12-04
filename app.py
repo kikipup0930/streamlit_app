@@ -464,14 +464,14 @@ def render_history(filters: Dict[str, Any]):
         st.markdown("### 履歴（OCRスキャン）")
 
         records: List[OcrRecord] = st.session_state.records
+        if not records:
+            st.info("まだ履歴がありません。")
+            return
 
-        # 新しい順にソート（さっき入れたやつをそのまま活かす）
-        records = sorted(
-            records,
-            key=lambda r: r.created_at,
-            reverse=True,
-        )
+        # 新しい順にソート
+        records = sorted(records, key=lambda r: r.created_at, reverse=True)
 
+        # フィルタ適用
         filtered = [
             r for r in records
             if matches_filters(r, filters["q"], filters["period"], filters["subject_filter"])
@@ -481,6 +481,7 @@ def render_history(filters: Dict[str, Any]):
             st.info("条件に合致する履歴はありません。")
             return
 
+        # カードで表示
         for rec in filtered:
             meta = f"科目: {rec.subject} ｜ 作成日: {rec.created_at} ｜ ID: {rec.id}"
             render_history_card(
@@ -492,21 +493,24 @@ def render_history(filters: Dict[str, Any]):
         return
 
     # =========================
-    # ② 復習クイズ履歴（とりあえずプレースホルダ）
+    # ② 復習クイズ履歴
     # =========================
     st.markdown("### 履歴（復習クイズ）")
 
     quiz_history = st.session_state.get("quiz_history", [])
     if not quiz_history:
-        st.info("復習履歴がありません。")
+        st.info("復習クイズの履歴はまだありません。")
         return
 
-    # ここは今後「クイズ履歴」を実装するときに使う場所
-    for log in quiz_history:
-        st.write(
-            f"- {log['created_at']} / 科目: {log['subject']} / "
-            f"正答率: {log['rate']:.0f}%（{log['correct_count']} / {log['total']}）"
+    # 新しい順に表示
+    for log in reversed(quiz_history):
+        st.markdown(f"#### {log['subject']} / 正答率 {log['rate']:.0f}%")
+        st.caption(
+            f"{log['created_at']} に {log['total']}問中 {log['correct_count']}問正解 "
+            f"（回答済み: {log['answered']}問）"
         )
+        st.write("---")
+
 
 
 # =====================
@@ -888,10 +892,10 @@ def render_sidebar():
     with st.sidebar:
         st.subheader("設定 / Filters")
 
-        # ★ 履歴の種類を選ぶ（OCR / 復習）
+        # ★ ここで履歴の種類を選ぶ
         history_type = st.radio(
             "履歴の種類",
-            ["OCR", "復習"],
+            ["OCRスキャン履歴", "復習クイズ履歴"],
             index=0,
         )
 
@@ -908,11 +912,12 @@ def render_sidebar():
         )
 
     return {
-        "history_type": history_type,  # ← view_mode の代わりにこれ
+        "history_type": history_type,  # ← ここが重要！
         "q": q,
         "period": period,
         "subject_filter": subject_filter,
     }
+
 
 
 # =====================
