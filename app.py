@@ -455,13 +455,13 @@ def copy_to_clipboard_button(label, text, key):
     st.markdown(f"<button id='copy-btn-{key}' onclick=\"{copy_js}\">{label}</button>", unsafe_allow_html=True)
 
 def render_history(filters: Dict[str, Any]):
-    history_type = filters.get("history_type", "OCRスキャン履歴")
+    history_type = filters.get("history_type", "OCR")
 
     # =========================
     # ① OCRスキャン履歴（カード固定）
     # =========================
-    if history_type == "OCRスキャン履歴":
-        st.markdown("### 履歴（OCRスキャン）")
+    if history_type == "OCR":
+        st.markdown("### 履歴（OCR）")
 
         records: List[OcrRecord] = st.session_state.records
         if not records:
@@ -495,11 +495,11 @@ def render_history(filters: Dict[str, Any]):
     # =========================
     # ② 復習クイズ履歴
     # =========================
-    st.markdown("### 履歴（復習クイズ）")
+    st.markdown("### 履歴（復習）")
 
     quiz_history = st.session_state.get("quiz_history", [])
     if not quiz_history:
-        st.info("復習クイズの履歴はまだありません。")
+        st.info("復習履歴はまだありません。")
         return
 
     # 新しい順に表示
@@ -895,7 +895,7 @@ def render_sidebar():
         # ★ ここで履歴の種類を選ぶ
         history_type = st.radio(
             "履歴の種類",
-            ["OCRスキャン履歴", "復習クイズ履歴"],
+            ["OCR", "復習"],
             index=0,
         )
 
