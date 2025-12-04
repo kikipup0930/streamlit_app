@@ -455,43 +455,59 @@ def copy_to_clipboard_button(label, text, key):
     st.markdown(f"<button id='copy-btn-{key}' onclick=\"{copy_js}\">{label}</button>", unsafe_allow_html=True)
 
 def render_history(filters: Dict[str, Any]):
-    st.markdown("### 履歴")
+    history_type = filters.get("history_type", "OCRスキャン履歴")
 
-    # ① まず全レコードを取得
-    records: List[OcrRecord] = st.session_state.records
+    # =========================
+    # ① OCRスキャン履歴（カード固定）
+    # =========================
+    if history_type == "OCRスキャン履歴":
+        st.markdown("### 履歴（OCRスキャン）")
 
-    # ② created_at で「新しい順」にソート
-    records = sorted(
-        records,
-        key=lambda r: r.created_at,
-        reverse=True,  # ← ここがポイント（降順＝新しい→古い）
-    )
+        records: List[OcrRecord] = st.session_state.records
 
-    # ③ フィルタをかける
-    filtered = [
-        r for r in records
-        if matches_filters(r, filters["q"], filters["period"], filters["subject_filter"])
-    ]
-
-
-    if not filtered:
-        st.info("条件に合致する履歴はありません。")
-        return
-
-    if filters["view_mode"] == "テーブル":
-        df = df_from_records(filtered)
-        st.dataframe(df, use_container_width=True)
-        return
-
-    # --- カード描画（付箋風固定） ---
-    for rec in filtered:
-        meta = f"科目: {rec.subject} ｜ 作成日: {rec.created_at} ｜ ID: {rec.id}"
-        render_history_card(
-            title=rec.filename,
-            meta=meta,
-            summary=rec.summary,
-            fulltext=rec.text,
+        # 新しい順にソート（さっき入れたやつをそのまま活かす）
+        records = sorted(
+            records,
+            key=lambda r: r.created_at,
+            reverse=True,
         )
+
+        filtered = [
+            r for r in records
+            if matches_filters(r, filters["q"], filters["period"], filters["subject_filter"])
+        ]
+
+        if not filtered:
+            st.info("条件に合致する履歴はありません。")
+            return
+
+        for rec in filtered:
+            meta = f"科目: {rec.subject} ｜ 作成日: {rec.created_at} ｜ ID: {rec.id}"
+            render_history_card(
+                title=rec.filename,
+                meta=meta,
+                summary=rec.summary,
+                fulltext=rec.text,
+            )
+        return
+
+    # =========================
+    # ② 復習クイズ履歴（とりあえずプレースホルダ）
+    # =========================
+    st.markdown("### 履歴（復習クイズ）")
+
+    quiz_history = st.session_state.get("quiz_history", [])
+    if not quiz_history:
+        st.info("復習クイズの履歴はまだありません。")
+        return
+
+    # ここは今後「クイズ履歴」を実装するときに使う場所
+    for log in quiz_history:
+        st.write(
+            f"- {log['created_at']} / 科目: {log['subject']} / "
+            f"正答率: {log['rate']:.0f}%（{log['correct_count']} / {log['total']}）"
+        )
+
 
 # =====================
 # 復習用ユーティリティ（科目ベース）
@@ -871,11 +887,20 @@ def render_ocr_tab():
 def render_sidebar():
     with st.sidebar:
         st.subheader("設定 / Filters")
-        view_mode = st.radio("履歴の表示形式", ["テーブル", "カード"], index=0, horizontal=True)
+
+        # ★ 履歴の種類を選ぶ（OCR / 復習）
+        history_type = st.radio(
+            "履歴の種類",
+            ["OCRスキャン履歴", "復習クイズ履歴"],
+            index=0,
+        )
+
         q = st.text_input("キーワード検索（ファイル名/本文/要約）")
 
-        # ★ 期間プリセット（忘れずに定義！）
-        period = st.selectbox("期間フィルタ", ["すべて", "直近7日", "直近30日", "今月"])
+        period = st.selectbox(
+            "期間フィルタ",
+            ["すべて", "直近7日", "直近30日", "今月"],
+        )
 
         subject_filter = st.selectbox(
             "科目フィルタ",
@@ -883,11 +908,12 @@ def render_sidebar():
         )
 
     return {
-        "view_mode": view_mode,
+        "history_type": history_type,  # ← view_mode の代わりにこれ
         "q": q,
-        "period": period,            # ← これでエラー消える
+        "period": period,
         "subject_filter": subject_filter,
     }
+
 
 # =====================
 # 学習進捗の可視化
