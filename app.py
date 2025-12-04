@@ -591,12 +591,10 @@ def render_review_tab():
     if "quiz_questions" not in st.session_state:
         st.session_state.quiz_questions = []
     if "quiz_results" not in st.session_state:
-        # { 問題番号: { "user_choice": str, "correct": bool } }
         st.session_state.quiz_results = {}
     if "quiz_history" not in st.session_state:
         st.session_state.quiz_history = []
     if "quiz_saved_flag" not in st.session_state:
-        # 今回のクイズ結果を履歴にもう保存したかどうか
         st.session_state.quiz_saved_flag = False
 
     records: List[OcrRecord] = st.session_state.records
@@ -620,7 +618,7 @@ def render_review_tab():
 
     st.caption(f"{subject} の記録件数: {len(subject_records)}件")
 
-    # 問題数をユーザーが選べるようにする
+    # 問題数
     num_questions = st.slider(
         "出題数",
         min_value=3,
@@ -634,7 +632,6 @@ def render_review_tab():
     if st.button("クイズ生成"):
         texts = []
         for rec in subject_records:
-            # 要約 or テキスト
             s = getattr(rec, "summary", "") or (
                 rec.meta.get("summary")
                 if hasattr(rec, "meta") and isinstance(rec.meta, dict)
@@ -657,7 +654,7 @@ def render_review_tab():
                 st.warning("問題を生成できませんでした。")
             else:
                 st.session_state.quiz_questions = qs
-                st.session_state.quiz_results = {}      # 前回の結果リセット
+                st.session_state.quiz_results = {}
                 st.session_state.quiz_saved_flag = False
                 st.success("復習問題を生成しました！")
 
@@ -667,17 +664,16 @@ def render_review_tab():
 
     st.write("---")
 
-    # --- 各問題の表示（ラジオだけ） ---
+    # --- 各問題の表示 ---
     for i, q in enumerate(questions):
         st.markdown(f"#### Q{i+1}. {q['q']}")
         choice = st.radio(
-            "選択肢を選んでください",
+            f"Q{i+1} の選択肢を選んでください",
             q["choices"],
             index=None,
             key=f"quiz_choice_{i}",
         )
 
-        # すでに採点済みなら結果を表示
         res = st.session_state.quiz_results.get(i)
         if res is not None:
             if res["correct"]:
@@ -687,7 +683,7 @@ def render_review_tab():
             if q.get("ex"):
                 st.info(f"解説：{q['ex']}")
 
-    # --- まとめて採点ボタン ---
+    # --- まとめて採点 ---
     if st.button("全部まとめて採点"):
         results = {}
         for i, q in enumerate(questions):
@@ -698,10 +694,9 @@ def render_review_tab():
                 "user_choice": choice,
                 "correct": (choice == q["correct"]),
             }
-
         st.session_state.quiz_results = results
 
-    # --- スコアサマリー & 自動履歴保存 ---
+    # --- スコアサマリー & 自動保存 ---
     results = st.session_state.quiz_results
     if results:
         st.write("---")
@@ -717,7 +712,7 @@ def render_review_tab():
             f"- 正答率：**{rate:.0f}%**"
         )
 
-        # ここで自動で復習履歴に保存（1回だけ）
+        # 自動保存（1回だけ）
         if not st.session_state.quiz_saved_flag:
             if rate >= 80:
                 comment = "とてもよくできています！理解が定着しています。"
@@ -739,9 +734,8 @@ def render_review_tab():
             hist = st.session_state.get("quiz_history", [])
             hist.append(log)
             st.session_state.quiz_history = hist
-            st.session_state.quiz_saved_flag = True   # 2回目以降は保存しない
+            st.session_state.quiz_saved_flag = True
 
-        # コメント表示
         if answered < total:
             st.caption("※ まだ解いていない問題があります。全部解くとより正確に実力がわかります。")
         else:
@@ -753,6 +747,7 @@ def render_review_tab():
                 st.warning("半分くらいは取れています。間違えた問題を中心にもう一度見直してみましょう。")
             else:
                 st.error("今回はちょっと難しかったかも…。解説を読みながら、ゆっくり復習してみましょう。")
+
 
 
 
