@@ -498,7 +498,7 @@ def render_history(filters: Dict[str, Any]):
 
     quiz_history = st.session_state.get("quiz_history", [])
     if not quiz_history:
-        st.info("復習クイズの履歴はまだありません。")
+        st.info("復習履歴がありません。")
         return
 
     # ここは今後「クイズ履歴」を実装するときに使う場所
@@ -574,7 +574,7 @@ def render_review_tab():
 
     records: List[OcrRecord] = st.session_state.records
     if not records:
-        st.info("まだデータがありません。OCRタブから記録を追加してください。")
+        st.info("まだデータがありません。")
         return
 
     # 科目一覧
@@ -891,7 +891,7 @@ def render_sidebar():
         # ★ 履歴の種類を選ぶ（OCR / 復習）
         history_type = st.radio(
             "履歴の種類",
-            ["OCRスキャン履歴", "復習クイズ履歴"],
+            ["OCR", "復習"],
             index=0,
         )
 
