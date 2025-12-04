@@ -492,6 +492,7 @@ def render_history(filters: Dict[str, Any]):
             )
         return
 
+
     # =========================
     # ② 復習クイズ履歴
     # =========================
@@ -502,41 +503,31 @@ def render_history(filters: Dict[str, Any]):
         st.info("復習クイズの履歴はまだありません。")
         return
 
-    # 新しい順に表示
     for log in reversed(quiz_history):
-        st.markdown(
-            f"""
-<div style="
-    background:#F9FAFB;
-    border:1px solid #E5E7EB;
-    border-radius:12px;
-    padding:16px 20px;
-    margin-bottom:16px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.05);
-">
-    <h4 style="margin:0 0 8px 0;">📘 {log['subject']}（復習クイズ）</h4>
+        html_block = f"""
+<div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:12px;
+           padding:16px 20px;margin-bottom:16px;
+           box-shadow:0 2px 6px rgba(0,0,0,0.05);">
+  <h4 style="margin:0 0 8px 0;">📘 {log['subject']}（復習クイズ）</h4>
 
-    <div style="color:#6B7280; font-size:0.9rem; margin-bottom:6px;">
-        実施日：{log['created_at']}
-    </div>
+  <div style="color:#6B7280;font-size:0.9rem;margin-bottom:6px;">
+    実施日：{log['created_at']}
+  </div>
 
-    <div style="font-size:0.95rem; margin-bottom:4px;">
-        出題数：{log['total']}問 ／ 回答済み：{log['answered']}問
-    </div>
+  <div style="font-size:0.95rem;margin-bottom:4px;">
+    出題数：{log['total']}問 ／ 回答済み：{log['answered']}問
+  </div>
 
-    <div style="font-size:0.95rem; margin-bottom:6px;">
-        正解数：{log['correct_count']}問  
-        （正答率：<b>{log['rate']:.0f}%</b>）
-    </div>
+  <div style="font-size:0.95rem;margin-bottom:6px;">
+    正解数：{log['correct_count']}問（正答率：<b>{log['rate']:.0f}%</b>）
+  </div>
 
-    <div style="background:#EEF2FF; padding:10px; border-radius:8px; font-size:0.9rem;">
-        <b>コメント：</b> {log['comment']}
-    </div>
+  <div style="background:#EEF2FF;padding:10px;border-radius:8px;font-size:0.9rem;">
+    <b>コメント：</b> {log['comment']}
+  </div>
 </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
+"""
+        st.markdown(html_block, unsafe_allow_html=True)
 
 
 
