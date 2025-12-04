@@ -419,7 +419,29 @@ def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.cs
         save_to_azure_blob_csv_append(blob_name, row)
     except Exception as e:
         print("[save_to_blob_csv] error:", e)
-        def save_quiz_log_to_blob(log: dict, blob_name: str = "studyrecord_quiz_history.csv") -> None:
+from utils import save_to_azure_blob_csv_append  # ← ファイル先頭で必ず import しておく
+
+def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.csv") -> None:
+    """utils.py の関数を使って Azure Blob Storage 上の CSV に追記保存する"""
+
+    row = {
+        "id": record.id,
+        "created_at": record.created_at,
+        "filename": record.filename,
+        "text": record.text,
+        "summary": record.summary,
+        "subject": record.subject,
+    }
+
+    try:
+        save_to_azure_blob_csv_append(blob_name, row)
+    except Exception as e:
+        print("[save_to_blob_csv] error:", e)
+
+
+# ==== ★ ここから復習クイズ履歴用の関数を追加 ★ ====
+
+def save_quiz_log_to_blob(log: dict, blob_name: str = "studyrecord_quiz_history.csv") -> None:
     """復習クイズ履歴を Azure Blob Storage の CSV に追記保存"""
     row = {
         "created_at": log["created_at"],
@@ -462,6 +484,8 @@ def load_quiz_history_from_blob(blob_name: str = "studyrecord_quiz_history.csv")
             }
         )
     return logs
+# ==== ★ ここまで追加 ★ ====
+
 
 
 
