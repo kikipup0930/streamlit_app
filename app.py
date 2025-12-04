@@ -282,7 +282,8 @@ def run_azure_quiz(text: str, subject: str, num_questions: int = 3) -> list[dict
     """Azure OpenAI で4択クイズを生成する"""
 
     import json
-    num = st.slider("問題数", 3, 10, 3)
+    if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_KEY or not AZURE_OPENAI_DEPLOYMENT:
+        return []
 
 
     if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_KEY or not AZURE_OPENAI_DEPLOYMENT:
@@ -577,9 +578,15 @@ def render_review_tab():
 
     st.caption(f"{subject} の記録件数: {len(subject_records)}件")
 
-    # 問題数（お好みで 3〜10 にしてもOK）
-    num_questions = 3
-    # num_questions = st.slider("出題数", 3, 10, 3)
+    # 問題数をユーザーが選べるようにする
+    num_questions = st.slider(
+        "出題数",
+        min_value=3,
+        max_value=10,
+        value=3,
+        step=1,
+        key="quiz_num_questions",
+    )
 
     # --- クイズ生成ボタン ---
     if st.button("この科目から4択クイズを作る"):
