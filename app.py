@@ -495,21 +495,48 @@ def render_history(filters: Dict[str, Any]):
     # =========================
     # ② 復習クイズ履歴
     # =========================
-    st.markdown("### 履歴（復習）")
+    st.markdown("### 復習クイズ履歴")
 
     quiz_history = st.session_state.get("quiz_history", [])
     if not quiz_history:
-        st.info("復習履歴はまだありません。")
+        st.info("復習クイズの履歴はまだありません。")
         return
 
     # 新しい順に表示
     for log in reversed(quiz_history):
-        st.markdown(f"#### {log['subject']} / 正答率 {log['rate']:.0f}%")
-        st.caption(
-            f"{log['created_at']} に {log['total']}問中 {log['correct_count']}問正解 "
-            f"（回答済み: {log['answered']}問）"
+        st.markdown(
+            f"""
+<div style="
+    background:#F9FAFB;
+    border:1px solid #E5E7EB;
+    border-radius:12px;
+    padding:16px 20px;
+    margin-bottom:16px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.05);
+">
+    <h4 style="margin:0 0 8px 0;">📘 {log['subject']}（復習クイズ）</h4>
+
+    <div style="color:#6B7280; font-size:0.9rem; margin-bottom:6px;">
+        実施日：{log['created_at']}
+    </div>
+
+    <div style="font-size:0.95rem; margin-bottom:4px;">
+        出題数：{log['total']}問 ／ 回答済み：{log['answered']}問
+    </div>
+
+    <div style="font-size:0.95rem; margin-bottom:6px;">
+        正解数：{log['correct_count']}問  
+        （正答率：<b>{log['rate']:.0f}%</b>）
+    </div>
+
+    <div style="background:#EEF2FF; padding:10px; border-radius:8px; font-size:0.9rem;">
+        <b>コメント：</b> {log['comment']}
+    </div>
+</div>
+            """,
+            unsafe_allow_html=True,
         )
-        st.write("---")
+
 
 
 
@@ -609,7 +636,7 @@ def render_review_tab():
     )
 
     # --- クイズ生成ボタン ---
-    if st.button("この科目から4択クイズを作る"):
+    if st.button("クイズ生成"):
         texts = []
         for rec in subject_records:
             # 要約 or テキスト
@@ -689,6 +716,34 @@ def render_review_tab():
             f"- 正解数：**{correct_count}問**\n"
             f"- 正答率：**{rate:.0f}%**"
         )
+             # --- 結果を履歴に保存 ---
+        if st.button("今回の結果を履歴に保存"):
+
+            # 一言コメント（簡易版）
+            if rate >= 80:
+                comment = "とてもよくできています！理解が定着しています。"
+            elif rate >= 60:
+                comment = "よい調子です。もう少し復習するとさらに良くなります！"
+            else:
+                comment = "難しかったかもしれません。間違えた問題を中心に復習しましょう。"
+
+            log = {
+                "created_at": _now_iso(),
+                "subject": subject,
+                "total": total,
+                "answered": answered,
+                "correct_count": correct_count,
+                "rate": rate,
+                "comment": comment,   # ← ⑤ 一言コメント
+            }
+
+            # セッションに追加
+            hist = st.session_state.get("quiz_history", [])
+            hist.append(log)
+            st.session_state.quiz_history = hist
+
+            st.success("復習クイズの結果を保存しました！")
+
 
         # 一言コメント（簡易ルール）
         if answered < total:
