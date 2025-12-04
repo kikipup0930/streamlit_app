@@ -595,10 +595,9 @@ def render_review_tab():
         st.session_state.quiz_results = {}
     if "quiz_history" not in st.session_state:
         st.session_state.quiz_history = []
-    if "quiz_run_id" not in st.session_state:
-        st.session_state.quiz_run_id = None
-    if "quiz_saved_for_run" not in st.session_state:
-        st.session_state.quiz_saved_for_run = False
+    if "quiz_saved_flag" not in st.session_state:
+        # 今回のクイズ結果を履歴にもう保存したかどうか
+        st.session_state.quiz_saved_flag = False
 
     records: List[OcrRecord] = st.session_state.records
     if not records:
@@ -658,12 +657,8 @@ def render_review_tab():
                 st.warning("問題を生成できませんでした。")
             else:
                 st.session_state.quiz_questions = qs
-                st.session_state.quiz_results = {}  # 前回の結果リセット
-
-                # このクイズ実行用のIDを更新
-                st.session_state.quiz_run_id = str(uuid.uuid4())
-                st.session_state.quiz_saved_for_run = False
-
+                st.session_state.quiz_results = {}      # 前回の結果リセット
+                st.session_state.quiz_saved_flag = False
                 st.success("復習問題を生成しました！")
 
     questions = st.session_state.get("quiz_questions", [])
@@ -672,10 +667,9 @@ def render_review_tab():
 
     st.write("---")
 
-    # --- 各問題の表示＆採点 ---
+    # --- 各問題の表示（ラジオだけ） ---
     for i, q in enumerate(questions):
         st.markdown(f"#### Q{i+1}. {q['q']}")
-
         choice = st.radio(
             "選択肢を選んでください",
             q["choices"],
@@ -683,26 +677,31 @@ def render_review_tab():
             key=f"quiz_choice_{i}",
         )
 
-        if st.button("答えをチェック", key=f"quiz_check_{i}"):
-            if not choice:
-                st.warning("まず選択肢を選んでください。")
+        # すでに採点済みなら結果を表示
+        res = st.session_state.quiz_results.get(i)
+        if res is not None:
+            if res["correct"]:
+                st.success("正解！")
             else:
-                is_correct = (choice == q["correct"])
-                # 結果を保存
-                st.session_state.quiz_results[i] = {
-                    "user_choice": choice,
-                    "correct": is_correct,
-                }
+                st.error("不正解…")
+            if q.get("ex"):
+                st.info(f"解説：{q['ex']}")
 
-                if is_correct:
-                    st.success("正解！")
-                else:
-                    st.error("不正解…")
+    # --- まとめて採点ボタン ---
+    if st.button("全部まとめて採点"):
+        results = {}
+        for i, q in enumerate(questions):
+            choice = st.session_state.get(f"quiz_choice_{i}")
+            if not choice:
+                continue
+            results[i] = {
+                "user_choice": choice,
+                "correct": (choice == q["correct"]),
+            }
 
-                if q.get("ex"):
-                    st.info(f"解説：{q['ex']}")
+        st.session_state.quiz_results = results
 
-    # --- スコアサマリー＆自動保存 ---
+    # --- スコアサマリー & 自動履歴保存 ---
     results = st.session_state.quiz_results
     if results:
         st.write("---")
@@ -718,10 +717,8 @@ def render_review_tab():
             f"- 正答率：**{rate:.0f}%**"
         )
 
-        # ★ ここで「今回のクイズ実行分」を自動保存（1回だけ）
-        run_id = st.session_state.get("quiz_run_id")
-        if run_id and not st.session_state.get("quiz_saved_for_run", False):
-            # 一言コメント（簡易版）
+        # ここで自動で復習履歴に保存（1回だけ）
+        if not st.session_state.quiz_saved_flag:
             if rate >= 80:
                 comment = "とてもよくできています！理解が定着しています。"
             elif rate >= 60:
@@ -730,7 +727,6 @@ def render_review_tab():
                 comment = "難しかったかもしれません。間違えた問題を中心に復習しましょう。"
 
             log = {
-                "run_id": run_id,
                 "created_at": _now_iso(),
                 "subject": subject,
                 "total": total,
@@ -743,11 +739,9 @@ def render_review_tab():
             hist = st.session_state.get("quiz_history", [])
             hist.append(log)
             st.session_state.quiz_history = hist
-            st.session_state.quiz_saved_for_run = True
+            st.session_state.quiz_saved_flag = True   # 2回目以降は保存しない
 
-            st.success("今回の復習結果を履歴に自動保存しました。")
-
-        # 一言コメント（簡易ルール：画面表示用）
+        # コメント表示
         if answered < total:
             st.caption("※ まだ解いていない問題があります。全部解くとより正確に実力がわかります。")
         else:
@@ -759,6 +753,7 @@ def render_review_tab():
                 st.warning("半分くらいは取れています。間違えた問題を中心にもう一度見直してみましょう。")
             else:
                 st.error("今回はちょっと難しかったかも…。解説を読みながら、ゆっくり復習してみましょう。")
+
 
 
 
