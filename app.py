@@ -419,6 +419,50 @@ def save_to_blob_csv(record: OcrRecord, blob_name: str = "studyrecord_history.cs
         save_to_azure_blob_csv_append(blob_name, row)
     except Exception as e:
         print("[save_to_blob_csv] error:", e)
+        def save_quiz_log_to_blob(log: dict, blob_name: str = "studyrecord_quiz_history.csv") -> None:
+    """復習クイズ履歴を Azure Blob Storage の CSV に追記保存"""
+    row = {
+        "created_at": log["created_at"],
+        "subject": log["subject"],
+        "total": log["total"],
+        "answered": log["answered"],
+        "correct_count": log["correct_count"],
+        "rate": log["rate"],
+        "comment": log["comment"],
+    }
+
+    try:
+        save_to_azure_blob_csv_append(blob_name, row)
+    except Exception as e:
+        print("[save_quiz_log_to_blob] error:", e)
+
+
+def load_quiz_history_from_blob(blob_name: str = "studyrecord_quiz_history.csv") -> list[dict]:
+    """Azure Blob 上の復習クイズCSVを読み込んで list[dict] で返す"""
+    try:
+        df = load_csv_from_blob(blob_name)
+    except Exception as e:
+        print("[load_quiz_history_from_blob] load error:", e)
+        return []
+
+    if df is None or df.empty:
+        return []
+
+    logs: list[dict] = []
+    for _, row in df.iterrows():
+        logs.append(
+            {
+                "created_at": row.get("created_at", ""),
+                "subject": row.get("subject", ""),
+                "total": int(row.get("total", 0) or 0),
+                "answered": int(row.get("answered", 0) or 0),
+                "correct_count": int(row.get("correct_count", 0) or 0),
+                "rate": float(row.get("rate", 0.0) or 0.0),
+                "comment": row.get("comment", ""),
+            }
+        )
+    return logs
+
 
 
 
@@ -757,6 +801,9 @@ def render_review_tab():
             hist.append(log)
             st.session_state.quiz_history = hist
             st.session_state.quiz_saved_flag = True
+
+            # ★ 復習履歴CSVにも保存
+            save_quiz_log_to_blob(log)
 
         if answered < total:
             st.caption("※ まだ解いていない問題があります。全部解くとより正確に実力がわかります。")
@@ -1108,6 +1155,11 @@ def main():
         blob_records = load_records_from_blob()
         if blob_records:
             st.session_state.records = blob_records
+
+        # ★ 復習クイズ履歴CSVも読み込む
+    if "quiz_history" not in st.session_state:
+        quiz_logs = load_quiz_history_from_blob()
+        st.session_state.quiz_history = quiz_logs
 
 
     # セッション初期化
