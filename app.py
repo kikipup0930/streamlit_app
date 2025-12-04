@@ -505,8 +505,14 @@ def render_history(filters: Dict[str, Any]):
         st.info("復習クイズの履歴はまだありません。")
         return
 
-    for log in reversed(quiz_history):
-        html_block = f"""
+    # 新しいものから順に表示
+    for idx, log in enumerate(reversed(quiz_history)):
+        # 1行を「カード本体」と「削除ボタン」の2カラムに分ける
+        col_main, col_del = st.columns([10, 1])
+
+        # 左：履歴カード本体
+        with col_main:
+            html_block = f"""
 <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:12px;
            padding:16px 20px;margin-bottom:16px;
            box-shadow:0 2px 6px rgba(0,0,0,0.05);">
@@ -529,13 +535,21 @@ def render_history(filters: Dict[str, Any]):
   </div>
 </div>
 """
-        st.markdown(html_block, unsafe_allow_html=True)
-                # --- 削除ボタンを作成 ---
-    if st.button(f"削除", key=f"delete_quiz_{log['created_at']}"):
-        quiz_history = [h for h in quiz_history if h["created_at"] != log["created_at"]]
-        st.session_state.quiz_history = quiz_history
-        st.success("履歴を削除しました！")
-        st.experimental_rerun()
+            st.markdown(html_block, unsafe_allow_html=True)
+
+        # 右上：削除ボタン（カードの右上っぽい位置）
+        with col_del:
+            # created_at をキーとして削除対象を特定
+            if st.button("✕", key=f"delete_quiz_{log['created_at']}"):
+                target_ts = log["created_at"]
+                # created_at が同じものを除外した新リストを作る
+                st.session_state.quiz_history = [
+                    h for h in st.session_state.quiz_history
+                    if h["created_at"] != target_ts
+                ]
+                st.success("この復習履歴を削除しました。")
+                st.experimental_rerun()
+
 
 
 
