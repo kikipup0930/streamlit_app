@@ -67,16 +67,26 @@ def inject_global_css():
         unsafe_allow_html=True,
     )
 
-def render_header(title: str,):
+def render_header(title: str):
     st.markdown(
         f"""
-        <div style="padding:22px 22px; border-radius:18px; background:linear-gradient(180deg,#f9f8f2,#f4f1e6);
-                    border:1px solid #ece8da; box-shadow:0 12px 20px rgba(0,0,0,.05); margin-bottom:16px;">
-          <div style="font-size:32px; font-weight:800; letter-spacing:.3px;">{title}</div>
+        <div style="
+            padding:22px 22px;
+            border-radius:18px;
+            background:linear-gradient(180deg,#f9f8f2,#f4f1e6);
+            border:1px solid #ece8da;
+            box-shadow:0 12px 20px rgba(0,0,0,.05);
+            margin-bottom:16px;
+            text-align:center;  /* ← ここを追加 */
+        ">
+          <div style="font-size:32px; font-weight:800; letter-spacing:.3px; display:inline-block;">
+            {title}
+          </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
 
 def metric_card(label: str, value: str, accent: str = "#16a34a"):
     st.markdown(
