@@ -1193,39 +1193,40 @@ def main():
     st.set_page_config(page_title=APP_TITLE, layout="wide")
     inject_global_css()
     st.markdown("""
-<style>
-/* タブのタイトル（未選択） */
-div[data-testid="stTabs"] button {
-    font-size: 1.15rem !important;     /* 文字サイズUP */
-    font-weight: 600 !important;       /* 太字 */
-    padding: 10px 18px !important;     /* 余白UP */
-    color: #4b5563 !important;         /* 少し濃いグレー */
-}
+    <style>
+    /* タブのタイトル（未選択） */
+    div[data-testid="stTabs"] button {
+        ...
+    }
 
-/* タブのタイトル（選択中） */
-div[data-testid="stTabs"] button[aria-selected="true"] {
-    color: #1E3A8A !important;         /* 濃い青 */
-    font-size: 1.25rem !important;     /* 選択時さらに大きい */
-    font-weight: 700 !important;       /* さらに太字 */
-    border-bottom: 3px solid #1E3A8A !important;  /* 強いライン */
-}
+    /* タブのタイトル（選択中） */
+    div[data-testid="stTabs"] button[aria-selected="true"] {
+        ...
+    }
 
-/* ホバー時に色が少し濃くなる */
-div[data-testid="stTabs"] button:hover {
-    color: #1d4ed8 !important;
-}
-/* タブ下の各ページタイトル（OCR / 履歴 / 進捗 / 復習） */
-[data-testid="stMarkdownContainer"] h3 {
-    display: inline-block;
-    font-size: 1.9rem !important;
-    font-weight: 900 !important;
-    color: #1E3A8A !important;   /* ← ここに !important を付ける */
-    border-radius: 6px;
-    margin-top: 8px !important;
-    margin-bottom: 18px !important;
-}
-</style>
-""", unsafe_allow_html=True)
+    /* ホバー時に色が少し濃くなる */
+    div[data-testid="stTabs"] button:hover {
+        ...
+    }
+
+    /* タブ下の各ページタイトル（OCR / 履歴 / 進捗 / 復習） */
+    [data-testid="stMarkdownContainer"] h3 {
+        display: inline-block;
+        font-size: 1.9rem !important;
+        font-weight: 900 !important;
+        color: #1E3A8A !important;
+        border-radius: 6px;
+        margin-top: 8px !important;
+        margin-bottom: 18px !important;
+    }
+
+    /* メインコンテンツの上の余白を小さくして、タイトルを上に寄せる */
+    main .block-container {
+        padding-top: 0.8rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 
 
     render_header(APP_TITLE)
