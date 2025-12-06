@@ -1225,6 +1225,7 @@ def main():
         background: #1E3A8A !important;     /* 濃いネイビー */
         color: #ffffff !important;
         box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25) !important;
+        flex: 1 1 0; 
         transform: translateY(1px);
     }
 
