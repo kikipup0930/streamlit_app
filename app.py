@@ -1201,11 +1201,12 @@ def main():
     }
 
     /* タブボタンを横に並べるコンテナ（1個目の子だけ flex） */
+    /* ★ 横幅をコンテンツいっぱいに広げる */
     div[data-testid="stTabs"] > div > div:first-child {
         display: flex;
         justify-content: flex-start;   /* 中央寄せにしたければ center */
         gap: 0.5rem;
-        width: 100%;
+        width: 100%;                   /* ← これを追加 */
     }
 
     /* タブのタイトル（共通・ピル型） */
@@ -1213,19 +1214,18 @@ def main():
         font-size: 1.0rem !important;
         font-weight: 600 !important;
         padding: 6px 18px !important;
-        border-radius: 999px !important;     /* 丸いピル型に */
+        border-radius: 999px !important;
         border: none !important;
         background: transparent !important;
-        color: #6b7280 !important;           /* グレー */
+        color: #6b7280 !important;
         box-shadow: none !important;
     }
 
     /* タブのタイトル（選択中） */
     div[data-testid="stTabs"] button[aria-selected="true"] {
-        background: #1E3A8A !important;     /* 濃いネイビー */
+        background: #1E3A8A !important;
         color: #ffffff !important;
         box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25) !important;
-        flex: 1 1 0; 
         transform: translateY(1px);
     }
 
@@ -1253,6 +1253,7 @@ def main():
     }
     </style>
     """, unsafe_allow_html=True)
+
 
 
 
