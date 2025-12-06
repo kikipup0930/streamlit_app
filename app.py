@@ -1219,6 +1219,7 @@ def main():
         background: transparent !important;
         color: #6b7280 !important;
         box-shadow: none !important;
+        flex: 1 1 0;
     }
 
     /* タブのタイトル（選択中） */
