@@ -1193,6 +1193,7 @@ def main():
     st.set_page_config(page_title=APP_TITLE, layout="wide")
     inject_global_css()
     st.markdown("""
+    <style>
     /* タブ全体のレイアウト（中央寄せ＋太めの下線） */
     div[data-testid="stTabs"] > div {
         display: flex;
@@ -1228,7 +1229,6 @@ def main():
         color: #1d4ed8 !important;
     }
 
-
     /* タブ下の各ページタイトル（OCR / 履歴 / 進捗 / 復習） */
     [data-testid="stMarkdownContainer"] h3 {
         display: inline-block;
@@ -1240,13 +1240,14 @@ def main():
         margin-bottom: 18px !important;
     }
 
-    /* メインコンテンツの上の余白を小さくして、タイトルを上に寄せる */
+    /* メインコンテンツの上の余白をなくす */
     main .block-container {
         padding-top: 0rem;
         padding-bottom: 0rem;
     }
     </style>
     """, unsafe_allow_html=True)
+
 
 
 
