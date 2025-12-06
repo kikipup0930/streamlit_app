@@ -1193,21 +1193,41 @@ def main():
     st.set_page_config(page_title=APP_TITLE, layout="wide")
     inject_global_css()
     st.markdown("""
-    <style>
-    /* タブのタイトル（未選択） */
+    /* タブ全体のレイアウト（中央寄せ＋太めの下線） */
+    div[data-testid="stTabs"] > div {
+        display: flex;
+        justify-content: flex-start;     /* 中央寄せにしたければ center */
+        gap: 0.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 0 0 0.75rem 0;
+    }
+
+    /* タブのタイトル（共通） */
     div[data-testid="stTabs"] button {
-        ...
+        font-size: 1.0rem !important;
+        font-weight: 600 !important;
+        padding: 6px 18px !important;
+        border-radius: 999px !important;     /* 丸いピル型に */
+        border: none !important;
+        background: transparent !important;
+        color: #6b7280 !important;           /* グレー */
+        box-shadow: none !important;
     }
 
     /* タブのタイトル（選択中） */
     div[data-testid="stTabs"] button[aria-selected="true"] {
-        ...
+        background: #1E3A8A !important;     /* 濃いネイビー */
+        color: #ffffff !important;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25) !important;
+        transform: translateY(1px);
     }
 
-    /* ホバー時に色が少し濃くなる */
+    /* ホバー時 */
     div[data-testid="stTabs"] button:hover {
-        ...
+        background: rgba(37, 99, 235, 0.08) !important;
+        color: #1d4ed8 !important;
     }
+
 
     /* タブ下の各ページタイトル（OCR / 履歴 / 進捗 / 復習） */
     [data-testid="stMarkdownContainer"] h3 {
