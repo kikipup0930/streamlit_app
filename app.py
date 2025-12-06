@@ -1223,6 +1223,7 @@ def main():
     /* メインコンテンツの上の余白を小さくして、タイトルを上に寄せる */
     main .block-container {
         padding-top: 0rem;
+        padding-bottom: 0rem;
     }
     </style>
     """, unsafe_allow_html=True)
