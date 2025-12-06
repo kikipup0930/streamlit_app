@@ -1205,6 +1205,7 @@ def main():
         display: flex;
         justify-content: flex-start;   /* 中央寄せにしたければ center */
         gap: 0.5rem;
+        width: 100%;
     }
 
     /* タブのタイトル（共通・ピル型） */
