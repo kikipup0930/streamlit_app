@@ -1176,36 +1176,46 @@ def render_progress_chart():
                 subject_counts = (
                     df.groupby("subject")
                       .size()
-                      .sort_values(ascending=True)
+                      .sort_values(ascending=False)  # 件数が多い科目を左に
                 )
 
                 fig2, ax2 = plt.subplots(figsize=(4.2, 2.6))
-                ax2.barh(subject_counts.index, subject_counts.values)
-                ax2.set_xlabel("件数")
-                ax2.set_ylabel("科目")
-                ax2.grid(axis="x", linestyle="--", alpha=0.4)
 
-                # 右側に件数ラベル（整数）
-                for y, v in enumerate(subject_counts.values):
+                # ★ 縦棒グラフ：x=科目, y=件数
+                x_labels = subject_counts.index.tolist()
+                y_values = subject_counts.values
+
+                ax2.bar(x_labels, y_values)
+                ax2.set_xlabel("科目")
+                ax2.set_ylabel("件数")
+                ax2.grid(axis="y", linestyle="--", alpha=0.4)
+
+                # 棒の上に件数ラベル（整数）
+                for x, v in enumerate(y_values):
                     ax2.text(
+                        x,
                         int(v) + 0.05,
-                        y,
                         str(int(v)),
-                        va="center",
+                        ha="center",
+                        va="bottom",
                         fontsize=8,
                     )
 
-                # X軸も整数目盛りにする
-                max_v = int(subject_counts.values.max())
-                ax2.set_xlim(0, max_v + 1)
-                ax2.set_xticks(range(0, max_v + 2))
+                # Y軸を整数目盛りにする
+                max_v = int(y_values.max())
+                ax2.set_ylim(0, max_v + 1)
+                ax2.set_yticks(range(0, max_v + 2))
+
+                # 科目名が重ならないように少し斜めに
+                plt.setp(ax2.get_xticklabels(), rotation=30, ha="right")
 
                 apply_jp_font(ax2)
-                fig2.tight_layout(pad=0.3)
+                fig2.tight_layout(pad=0.4)
                 st.pyplot(fig2, use_container_width=True)
                 plt.close(fig2)
             else:
                 st.info("科目情報が未設定のため、科目別グラフは表示できません。")
+
 
 
 
