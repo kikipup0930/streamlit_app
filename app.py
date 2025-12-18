@@ -1075,13 +1075,24 @@ def render_progress_chart():
     font_path = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansJP-Regular.ttf")
     prop = fm.FontProperties(fname=font_path) if os.path.exists(font_path) else None
 
+def render_progress_chart():
+    records: List[OcrRecord] = st.session_state.records
+    if not records:
+        st.info("まだデータがありません。OCRを実行すると進捗が表示されます。")
+        return
+
+    # ========= 日本語フォント設定 =========
+    import matplotlib.font_manager as fm
+    font_path = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansJP-Regular.ttf")
+    prop = fm.FontProperties(fname=font_path) if os.path.exists(font_path) else None
+
     def apply_jp_font(ax):
         if not prop:
             return
         # タイトル・軸ラベル
         t = ax.get_title()
         if t:
-            ax.set_title(t, fontproperties=prop, fontsize=16)
+            ax.set_title(t, fontproperties=prop, fontsize=15)
         xl = ax.get_xlabel()
         if xl:
             ax.set_xlabel(xl, fontproperties=prop, fontsize=12)
@@ -1091,12 +1102,11 @@ def render_progress_chart():
         # 目盛りラベル
         for lab in ax.get_xticklabels() + ax.get_yticklabels():
             lab.set_fontproperties(prop)
-            lab.set_fontsize(10)
+            lab.set_fontsize(9)
 
     # ========= データ準備 =========
     df = df_from_records(records)
     df["date"] = pd.to_datetime(df["created_at"]).dt.date
-    df["summary_len"] = df["summary"].apply(lambda x: len(x) if isinstance(x, str) else 0)
 
     # ========= サマリー（上段） =========
     total_ocr = len(df)
@@ -1104,66 +1114,91 @@ def render_progress_chart():
     recent_ocr = len(last7)
 
     c1, c2 = st.columns(2)
-    with c1: metric_card("総OCR件数", f"{total_ocr} 件")
-    with c2: metric_card("直近7日間のOCR件数", f"{recent_ocr} 件")
+    with c1:
+        metric_card("総OCR件数", f"{total_ocr} 件")
+    with c2:
+        metric_card("直近7日間のOCR件数", f"{recent_ocr} 件")
 
     st.divider()
 
-    # ========= グラフ描画 =========
-    # 1段目：日別OCR件数（ワイド）
-    daily_counts = df.groupby("date").size()
-    fig1, ax1 = plt.subplots(figsize=(10, 3.8))
-    daily_counts.plot(kind="bar", ax=ax1, rot=45, color="#2196F3")
-    ax1.set_title("日別OCR件数")
-    ax1.set_xlabel("日付")
-    ax1.set_ylabel("件数")
-    ax1.grid(axis="y", linestyle="--", alpha=0.7)
-    apply_jp_font(ax1)
-    fig1.tight_layout()
-    st.pyplot(fig1, use_container_width=True)
-    plt.close(fig1)
+    # ========= 1. 日別OCR件数（直近30日・数字ラベル付き） =========
+    daily_counts = (
+        df.groupby("date")
+          .size()
+          .rename("count")
+          .reset_index()
+          .sort_values("date")
+    )
 
-    # 2段目：科目別（棒＋円）を横並び
+    today = dt.date.today()
+    start = today - dt.timedelta(days=29)
+    daily_counts = daily_counts[daily_counts["date"] >= start]
+
+    if not daily_counts.empty:
+        fig1, ax1 = plt.subplots(figsize=(9, 3.8))
+        x_labels = daily_counts["date"].astype(str)
+
+        ax1.bar(x_labels, daily_counts["count"])
+        ax1.set_title("日別OCR件数（直近30日）")
+        ax1.set_xlabel("日付")
+        ax1.set_ylabel("件数")
+        ax1.grid(axis="y", linestyle="--", alpha=0.6)
+
+        # 上に件数を表示
+        for x, y in zip(range(len(x_labels)), daily_counts["count"]):
+            ax1.text(
+                x,
+                y + 0.05,
+                str(y),
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+
+        ax1.set_ylim(0, max(daily_counts["count"].max() + 0.8, 3))
+        plt.setp(ax1.get_xticklabels(), rotation=45, ha="right")
+
+        apply_jp_font(ax1)
+        fig1.tight_layout()
+        st.pyplot(fig1, use_container_width=True)
+        plt.close(fig1)
+    else:
+        st.info("直近30日間のデータがありません。")
+
+    st.write("")  # ちょっと余白
+
+    # ========= 2. 科目別OCR件数（横棒グラフ） =========
     if "subject" in df.columns and not df["subject"].isna().all():
-        subject_counts = df.groupby("subject").size().sort_values(ascending=False)
+        subject_counts = (
+            df.groupby("subject")
+              .size()
+              .sort_values(ascending=True)  # 下から上に伸びるように
+        )
 
-        col_left, col_right = st.columns(2)
+        fig2, ax2 = plt.subplots(figsize=(9, 4))
+        ax2.barh(subject_counts.index, subject_counts.values)
+        ax2.set_title("科目別OCR件数（累計）")
+        ax2.set_xlabel("件数")
+        ax2.set_ylabel("科目")
+        ax2.grid(axis="x", linestyle="--", alpha=0.6)
 
-        # 左：科目別OCR件数（棒）
-        with col_left:
-            fig2, ax2 = plt.subplots(figsize=(6, 4))
-            subject_counts.plot(
-                kind="bar", ax=ax2, rot=45,
-                color=["#FF9800", "#2196F3", "#4CAF50", "#9C27B0", "#E91E63"][: len(subject_counts)]
+        # 右側に件数ラベル
+        for y, v in enumerate(subject_counts.values):
+            ax2.text(
+                v + 0.05,
+                y,
+                str(v),
+                va="center",
+                fontsize=9,
             )
-            ax2.set_title("科目別OCR件数")
-            ax2.set_xlabel("科目")
-            ax2.set_ylabel("件数")
-            ax2.grid(axis="y", linestyle="--", alpha=0.7)
-            apply_jp_font(ax2)
-            fig2.tight_layout()
-            st.pyplot(fig2, use_container_width=True)
-            plt.close(fig2)
 
-        # 右：科目別割合（円）
-        with col_right:
-            fig3, ax3 = plt.subplots(figsize=(6, 4))
-            subject_counts.plot(
-                kind="pie", ax=ax3, autopct="%1.1f%%", startangle=90,
-                colors=["#FF9800", "#2196F3", "#4CAF50", "#9C27B0", "#E91E63"][: len(subject_counts)]
-            )
-            ax3.set_title("科目別OCR件数（割合）")
-            ax3.set_ylabel("")  # yラベルは不要
-            # 円グラフのテキスト（科目名・割合）にも日本語フォントを適用
-            if prop:
-                for t in ax3.texts:
-                    t.set_fontproperties(prop)
-            apply_jp_font(ax3)  # タイトルも適用
-            fig3.tight_layout()
-            st.pyplot(fig3, use_container_width=True)
-            plt.close(fig3)
+        apply_jp_font(ax2)
+        fig2.tight_layout()
+        st.pyplot(fig2, use_container_width=True)
+        plt.close(fig2)
     else:
         st.info("科目情報が未設定のため、科目別グラフは表示できません。")
+
 
 
 
