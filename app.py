@@ -1111,98 +1111,102 @@ def render_progress_chart():
     st.divider()
 
     # ====== レイアウト用：左右に少し余白を作る ======
-    left_pad, main_col, right_pad = st.columns([0.06, 0.88, 0.06])
+    left_pad, main_col, right_pad = st.columns([0.04, 0.92, 0.04])
 
     with main_col:
-        # ========= 1. 日別OCR件数（直近30日） =========
-        st.markdown("#### 日別OCR件数（直近30日）")
+        # ========= 横並びレイアウト =========
+        col_left, col_right = st.columns(2)
 
-        daily_counts = (
-            df.groupby("date")
-              .size()
-              .rename("count")
-              .reset_index()
-              .sort_values("date")
-        )
+        # ---- 左：日別OCR件数（直近30日） ----
+        with col_left:
+            st.markdown("#### 日別OCR件数（直近30日）")
 
-        today = dt.date.today()
-        start = today - dt.timedelta(days=29)
-        daily_counts = daily_counts[daily_counts["date"] >= start]
-
-        if not daily_counts.empty:
-            # ★ 縦をかなり低くして 1画面に収めやすく
-            fig1, ax1 = plt.subplots(figsize=(8, 2.3))
-            x_labels = daily_counts["date"].astype(str)
-
-            ax1.bar(x_labels, daily_counts["count"])
-            ax1.set_xlabel("日付")
-            ax1.set_ylabel("件数")
-            ax1.grid(axis="y", linestyle="--", alpha=0.4)
-
-            # 上に件数（整数）を表示
-            for x, y in zip(range(len(x_labels)), daily_counts["count"]):
-                ax1.text(
-                    x,
-                    y + 0.05,
-                    str(int(y)),
-                    ha="center",
-                    va="bottom",
-                    fontsize=8,
-                )
-
-            # Y軸を整数目盛りにする
-            max_count = int(daily_counts["count"].max())
-            ax1.set_ylim(0, max_count + 1)
-            ax1.set_yticks(range(0, max_count + 2))
-
-            # X軸のラベルも小さめ＆斜め
-            plt.setp(ax1.get_xticklabels(), rotation=45, ha="right")
-
-            apply_jp_font(ax1)
-            fig1.tight_layout(pad=0.3)
-            st.pyplot(fig1, use_container_width=True)
-            plt.close(fig1)
-        else:
-            st.info("直近30日間のデータがありません。")
-
-        # ========= 2. 科目別OCR件数（横棒） =========
-        st.markdown("#### 科目別OCR件数（累計）")
-
-        if "subject" in df.columns and not df["subject"].isna().all():
-            subject_counts = (
-                df.groupby("subject")
+            daily_counts = (
+                df.groupby("date")
                   .size()
-                  .sort_values(ascending=True)
+                  .rename("count")
+                  .reset_index()
+                  .sort_values("date")
             )
 
-            # ★ こちらも縦を低めに
-            fig2, ax2 = plt.subplots(figsize=(8, 2.6))
-            ax2.barh(subject_counts.index, subject_counts.values)
-            ax2.set_xlabel("件数")
-            ax2.set_ylabel("科目")
-            ax2.grid(axis="x", linestyle="--", alpha=0.4)
+            today = dt.date.today()
+            start = today - dt.timedelta(days=29)
+            daily_counts = daily_counts[daily_counts["date"] >= start]
 
-            # 右側に件数ラベル（整数）
-            for y, v in enumerate(subject_counts.values):
-                ax2.text(
-                    int(v) + 0.05,
-                    y,
-                    str(int(v)),
-                    va="center",
-                    fontsize=8,
+            if not daily_counts.empty:
+                # 横並び用にコンパクトなサイズ
+                fig1, ax1 = plt.subplots(figsize=(4.2, 2.6))
+                x_labels = daily_counts["date"].astype(str)
+
+                ax1.bar(x_labels, daily_counts["count"])
+                ax1.set_xlabel("日付")
+                ax1.set_ylabel("件数")
+                ax1.grid(axis="y", linestyle="--", alpha=0.4)
+
+                # 上に件数（整数）を表示
+                for x, y in zip(range(len(x_labels)), daily_counts["count"]):
+                    ax1.text(
+                        x,
+                        y + 0.05,
+                        str(int(y)),
+                        ha="center",
+                        va="bottom",
+                        fontsize=8,
+                    )
+
+                # Y軸を整数目盛りにする
+                max_count = int(daily_counts["count"].max())
+                ax1.set_ylim(0, max_count + 1)
+                ax1.set_yticks(range(0, max_count + 2))
+
+                plt.setp(ax1.get_xticklabels(), rotation=45, ha="right")
+
+                apply_jp_font(ax1)
+                fig1.tight_layout(pad=0.3)
+                st.pyplot(fig1, use_container_width=True)
+                plt.close(fig1)
+            else:
+                st.info("直近30日間のデータがありません。")
+
+        # ---- 右：科目別OCR件数（累計） ----
+        with col_right:
+            st.markdown("#### 科目別OCR件数（累計）")
+
+            if "subject" in df.columns and not df["subject"].isna().all():
+                subject_counts = (
+                    df.groupby("subject")
+                      .size()
+                      .sort_values(ascending=True)
                 )
 
-            # X軸も整数目盛りにする
-            max_v = int(subject_counts.values.max())
-            ax2.set_xlim(0, max_v + 1)
-            ax2.set_xticks(range(0, max_v + 2))
+                fig2, ax2 = plt.subplots(figsize=(4.2, 2.6))
+                ax2.barh(subject_counts.index, subject_counts.values)
+                ax2.set_xlabel("件数")
+                ax2.set_ylabel("科目")
+                ax2.grid(axis="x", linestyle="--", alpha=0.4)
 
-            apply_jp_font(ax2)
-            fig2.tight_layout(pad=0.3)
-            st.pyplot(fig2, use_container_width=True)
-            plt.close(fig2)
-        else:
-            st.info("科目情報が未設定のため、科目別グラフは表示できません。")
+                # 右側に件数ラベル（整数）
+                for y, v in enumerate(subject_counts.values):
+                    ax2.text(
+                        int(v) + 0.05,
+                        y,
+                        str(int(v)),
+                        va="center",
+                        fontsize=8,
+                    )
+
+                # X軸も整数目盛りにする
+                max_v = int(subject_counts.values.max())
+                ax2.set_xlim(0, max_v + 1)
+                ax2.set_xticks(range(0, max_v + 2))
+
+                apply_jp_font(ax2)
+                fig2.tight_layout(pad=0.3)
+                st.pyplot(fig2, use_container_width=True)
+                plt.close(fig2)
+            else:
+                st.info("科目情報が未設定のため、科目別グラフは表示できません。")
+
 
 
 
