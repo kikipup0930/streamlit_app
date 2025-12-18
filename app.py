@@ -1144,18 +1144,22 @@ def render_progress_chart():
         ax1.set_ylabel("件数")
         ax1.grid(axis="y", linestyle="--", alpha=0.6)
 
-        # 上に件数を表示
+        # 上に件数を表示（整数）
         for x, y in zip(range(len(x_labels)), daily_counts["count"]):
             ax1.text(
                 x,
                 y + 0.05,
-                str(y),
+                str(int(y)),
                 ha="center",
                 va="bottom",
                 fontsize=9,
             )
 
-        ax1.set_ylim(0, max(daily_counts["count"].max() + 0.8, 3))
+        # ★ ここで Y 軸の目盛りを整数だけにする
+        max_count = int(daily_counts["count"].max())
+        ax1.set_ylim(0, max_count + 1)
+        ax1.set_yticks(range(0, max_count + 2))
+
         plt.setp(ax1.get_xticklabels(), rotation=45, ha="right")
 
         apply_jp_font(ax1)
@@ -1182,15 +1186,20 @@ def render_progress_chart():
         ax2.set_ylabel("科目")
         ax2.grid(axis="x", linestyle="--", alpha=0.6)
 
-        # 右側に件数ラベル
+        # 右側に件数ラベル（整数）
         for y, v in enumerate(subject_counts.values):
             ax2.text(
-                v + 0.05,
+                int(v) + 0.05,
                 y,
-                str(v),
+                str(int(v)),
                 va="center",
                 fontsize=9,
             )
+
+        # ★ X 軸も整数だけにする
+        max_v = int(subject_counts.values.max())
+        ax2.set_xlim(0, max_v + 1)
+        ax2.set_xticks(range(0, max_v + 2))
 
         apply_jp_font(ax2)
         fig2.tight_layout()
@@ -1198,6 +1207,7 @@ def render_progress_chart():
         plt.close(fig2)
     else:
         st.info("科目情報が未設定のため、科目別グラフは表示できません。")
+
 
 
 
