@@ -1075,34 +1075,23 @@ def render_progress_chart():
     font_path = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansJP-Regular.ttf")
     prop = fm.FontProperties(fname=font_path) if os.path.exists(font_path) else None
 
-def render_progress_chart():
-    records: List[OcrRecord] = st.session_state.records
-    if not records:
-        st.info("まだデータがありません。OCRを実行すると進捗が表示されます。")
-        return
-
-    # ========= 日本語フォント設定 =========
-    import matplotlib.font_manager as fm
-    font_path = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansJP-Regular.ttf")
-    prop = fm.FontProperties(fname=font_path) if os.path.exists(font_path) else None
-
     def apply_jp_font(ax):
         if not prop:
             return
         # タイトル・軸ラベル
         t = ax.get_title()
         if t:
-            ax.set_title(t, fontproperties=prop, fontsize=15)
+            ax.set_title(t, fontproperties=prop, fontsize=13)
         xl = ax.get_xlabel()
         if xl:
-            ax.set_xlabel(xl, fontproperties=prop, fontsize=12)
+            ax.set_xlabel(xl, fontproperties=prop, fontsize=10)
         yl = ax.get_ylabel()
         if yl:
-            ax.set_ylabel(yl, fontproperties=prop, fontsize=12)
+            ax.set_ylabel(yl, fontproperties=prop, fontsize=10)
         # 目盛りラベル
         for lab in ax.get_xticklabels() + ax.get_yticklabels():
             lab.set_fontproperties(prop)
-            lab.set_fontsize(9)
+            lab.set_fontsize(8)
 
     # ========= データ準備 =========
     df = df_from_records(records)
@@ -1124,8 +1113,8 @@ def render_progress_chart():
     # ====== レイアウト用：左右に少し余白を作る ======
     left_pad, main_col, right_pad = st.columns([0.06, 0.88, 0.06])
 
-    # ========= 1. 日別OCR件数（直近30日） =========
     with main_col:
+        # ========= 1. 日別OCR件数（直近30日） =========
         st.markdown("#### 日別OCR件数（直近30日）")
 
         daily_counts = (
@@ -1141,13 +1130,14 @@ def render_progress_chart():
         daily_counts = daily_counts[daily_counts["date"] >= start]
 
         if not daily_counts.empty:
-            fig1, ax1 = plt.subplots(figsize=(8, 3.6))
+            # ★ 縦をかなり低くして 1画面に収めやすく
+            fig1, ax1 = plt.subplots(figsize=(8, 2.3))
             x_labels = daily_counts["date"].astype(str)
 
             ax1.bar(x_labels, daily_counts["count"])
             ax1.set_xlabel("日付")
             ax1.set_ylabel("件数")
-            ax1.grid(axis="y", linestyle="--", alpha=0.6)
+            ax1.grid(axis="y", linestyle="--", alpha=0.4)
 
             # 上に件数（整数）を表示
             for x, y in zip(range(len(x_labels)), daily_counts["count"]):
@@ -1157,7 +1147,7 @@ def render_progress_chart():
                     str(int(y)),
                     ha="center",
                     va="bottom",
-                    fontsize=9,
+                    fontsize=8,
                 )
 
             # Y軸を整数目盛りにする
@@ -1165,16 +1155,15 @@ def render_progress_chart():
             ax1.set_ylim(0, max_count + 1)
             ax1.set_yticks(range(0, max_count + 2))
 
+            # X軸のラベルも小さめ＆斜め
             plt.setp(ax1.get_xticklabels(), rotation=45, ha="right")
 
             apply_jp_font(ax1)
-            fig1.tight_layout()
+            fig1.tight_layout(pad=0.3)
             st.pyplot(fig1, use_container_width=True)
             plt.close(fig1)
         else:
             st.info("直近30日間のデータがありません。")
-
-        st.write("")  # グラフ間の余白
 
         # ========= 2. 科目別OCR件数（横棒） =========
         st.markdown("#### 科目別OCR件数（累計）")
@@ -1183,14 +1172,15 @@ def render_progress_chart():
             subject_counts = (
                 df.groupby("subject")
                   .size()
-                  .sort_values(ascending=True)  # 下から上に伸びるように
+                  .sort_values(ascending=True)
             )
 
-            fig2, ax2 = plt.subplots(figsize=(8, 3.8))
+            # ★ こちらも縦を低めに
+            fig2, ax2 = plt.subplots(figsize=(8, 2.6))
             ax2.barh(subject_counts.index, subject_counts.values)
             ax2.set_xlabel("件数")
             ax2.set_ylabel("科目")
-            ax2.grid(axis="x", linestyle="--", alpha=0.6)
+            ax2.grid(axis="x", linestyle="--", alpha=0.4)
 
             # 右側に件数ラベル（整数）
             for y, v in enumerate(subject_counts.values):
@@ -1199,7 +1189,7 @@ def render_progress_chart():
                     y,
                     str(int(v)),
                     va="center",
-                    fontsize=9,
+                    fontsize=8,
                 )
 
             # X軸も整数目盛りにする
@@ -1208,11 +1198,12 @@ def render_progress_chart():
             ax2.set_xticks(range(0, max_v + 2))
 
             apply_jp_font(ax2)
-            fig2.tight_layout()
+            fig2.tight_layout(pad=0.3)
             st.pyplot(fig2, use_container_width=True)
             plt.close(fig2)
         else:
             st.info("科目情報が未設定のため、科目別グラフは表示できません。")
+
 
 
 
